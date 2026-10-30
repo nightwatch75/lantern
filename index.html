@@ -101,6 +101,7 @@ header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
 #rdlg{width:min(720px,96vw)}
 .oui{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--on2)}.oui span{flex:1}
 .ouiurls{display:grid;gap:4px;font-size:.86em;color:var(--on2);margin-top:12px}.ouiurls textarea{font:inherit;font-family:ui-monospace,monospace;font-size:.9em;padding:8px;border-radius:8px;border:1px solid var(--line,var(--on2));background:transparent;color:var(--on);resize:vertical;width:100%;box-sizing:border-box}
+.icon-btn[aria-pressed=true]{color:var(--primary)}
 </style>
 </head>
 <body>
@@ -114,6 +115,7 @@ header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
   <a class="chip" id="xcsv" href="/api/export.csv" download data-it="exp.csv"><svg class="i" viewBox="0 0 24 24"><use href="#i-download"/></svg><span class="lbl">CSV</span></a>
   <a class="chip" id="xxlsx" href="/api/export.xlsx" download data-it="exp.xlsx"><svg class="i" viewBox="0 0 24 24"><use href="#i-download"/></svg><span class="lbl">Excel</span></a>
   <span id="ts" style="color:var(--on2)"></span>
+  <button class="icon-btn" id="pause" data-it="auto.pause"><svg class="i" viewBox="0 0 24 24"><use href="#i-pause"/></svg></button>
   <button class="icon-btn" id="refresh" data-it="refresh"><svg class="i" viewBox="0 0 24 24"><use href="#i-refresh"/></svg></button>
   <button class="icon-btn fs" id="fsm" data-it="fs.m">A-</button>
   <button class="icon-btn fs" id="fsp" data-it="fs.p">A+</button>
@@ -190,6 +192,8 @@ iot:'<rect x="5" y="5" width="14" height="14" rx="3"/><circle cx="12" cy="12" r=
 nas:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h10M7 14h4M16 14h.01"/>',
 sbc:'<rect x="3" y="6" width="18" height="12" rx="2"/><rect x="8" y="9.5" width="4" height="5"/><path d="M15 10h3M15 14h3M6 18v2M10 18v2M14 18v2"/>',
 lantern:'<path d="M10 3h4M12 3v2"/><rect x="7" y="5" width="10" height="14" rx="3"/><path d="M12 9c-1.5 2-1.5 3.5 0 5 1.5-1.5 1.5-3 0-5zM9 21h6"/>',
+pause:'<path d="M9 5v14M15 5v14"/>',
+play:'<path d="M8 5l11 7-11 7z"/>',
 refresh:'<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v4h-4"/>',
 theme:'<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/>',
 search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/>',
@@ -208,7 +212,7 @@ it:'<svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="
 en:'<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice"><rect width="60" height="30" fill="#012169"/><path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L60 30M60 0L0 30" stroke="#c8102e" stroke-width="2"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/></svg>'};
 const LANGS={it:'Italiano',en:'English'};
 const L={
-it:{'oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
+it:{'auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note','f.on':'Online','f.off':'Offline','f.dyn':'Solo dinamici',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
@@ -226,7 +230,7 @@ it:{'oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto =
 'rf.mac':'MAC inizia con','rf.name':'Nome contiene','rf.ports':'Porta aperta','rf.vendor':'Produttore contiene','rules.pattern':'testo','rules.add':'Aggiungi',
 'oui.info':'{n} prefissi - fonte: {s} - aggiornato il {d}','oui.empty':'Database OUI vuoto','oui.update':'Aggiorna da IEEE','oui.busy':'Download in corso...',
 'sug.prefix':'Suggerito:','sug.vendor':'produttore {v}','sug.cat':'categoria {c} (regola {r})','sug.apply':'Applica','sug.local':'MAC locale o privato: il produttore non si può ricavare dal MAC'},
-en:{'oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
+en:{'auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes','f.on':'Online','f.off':'Offline','f.dyn':'Dynamic only',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
@@ -427,7 +431,12 @@ $('#langbtn').onclick=e=>{e.stopPropagation();$('#lmenu').hidden=!$('#lmenu').hi
 $('#lmenu').onclick=e=>{const b=e.target.closest('[data-l]');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('lang',lang)}catch{}
   $('#lmenu').hidden=true;applyLang()};
 document.addEventListener('click',()=>{$('#lmenu').hidden=true});
-applyLang();load().then(()=>{if(!devices.length)discover(true)});setInterval(load,30000);
+applyLang();load().then(()=>{if(!devices.length)discover(true)});let auto=true;try{auto=localStorage.getItem('auto')!=='0'}catch{}
+const setAuto=v=>{auto=v;try{localStorage.setItem('auto',v?'1':'0')}catch{}
+  $('#pause').dataset.it=v?'auto.pause':'auto.resume';$('#pause').setAttribute('aria-pressed',!v);
+  $('#pause use').setAttribute('href',v?'#i-pause':'#i-play');applyLang()};
+$('#pause').onclick=()=>setAuto(!auto);setAuto(auto);
+setInterval(()=>{if(auto)load()},30000);
 </script>
 </body>
 </html>

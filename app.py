@@ -346,7 +346,7 @@ class H(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         try:
             if method == "GET" and path == "/":
-                return self.send(200, (DIR / "index.html").read_bytes(), "text/html; charset=utf-8")
+                return self.send(200, (DIR / "index.html").read_bytes().replace(b"{{VERSION}}", VERSION.encode()), "text/html; charset=utf-8")
             if method == "GET" and path == "/logo.svg":
                 return self.send(200, (DIR / "logo.svg").read_bytes(), "image/svg+xml")
             if method == "GET" and path in ("/api/export.csv", "/api/export.xlsx"):

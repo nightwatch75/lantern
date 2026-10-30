@@ -239,16 +239,30 @@ def oui_update(c, urls=None):
     c.commit()
 
 
+def oui_vendor(c, mac):
+    """(producer from the OUI registry, locally administered?). A local MAC has no producer."""
+    valid = bool(MAC_RE.match(mac))
+    local = valid and bool(int(mac[:2], 16) & 2)  # 'locally administered' bit: no vendor in the IEEE registry
+    if not valid or local:
+        return "", local
+    h = mac.replace(":", "").upper()
+    r = c.execute("SELECT vendor FROM oui WHERE prefix IN (?,?,?) ORDER BY length(prefix) DESC LIMIT 1", (h[:9], h[:7], h[:6])).fetchone()
+    return (r[0] if r else ""), local
+
+
+def family(c, did):
+    """(producer, [(id, name)]) of the other devices whose MAC belongs to the same producer. No producer, no family."""
+    me = c.execute("SELECT mac FROM devices WHERE id=?", (did,)).fetchone()
+    vendor = oui_vendor(c, me[0])[0] if me else ""
+    if not vendor:
+        return "", []
+    return vendor, [(i, n) for i, n, m in c.execute("SELECT id, name, mac FROM devices WHERE id != ?", (did,)) if oui_vendor(c, m)[0] == vendor]
+
+
 def suggest(c, mac, name, ports):
     """Produttore dal prefisso MAC (OUI) e categoria dalla prima regola che corrisponde."""
     mac = mac.strip().lower()
-    valid = bool(MAC_RE.match(mac))
-    local = valid and bool(int(mac[:2], 16) & 2)  # 'locally administered' bit: no vendor in the IEEE registry
-    vendor = ""
-    if valid and not local:
-        h = mac.replace(":", "").upper()
-        r = c.execute("SELECT vendor FROM oui WHERE prefix IN (?,?,?) ORDER BY length(prefix) DESC LIMIT 1", (h[:9], h[:7], h[:6])).fetchone()
-        vendor = r[0] if r else ""
+    vendor, local = oui_vendor(c, mac)
     port_list = [p.split("/")[0] for p in ports.split(",") if p]
     rules = sorted(c.execute("SELECT r.* FROM rules r JOIN categories k ON k.key = r.category"), key=lambda r: (FIELD_ORDER.index(r["field"]), r["id"]))
     for r in rules:
@@ -573,6 +587,10 @@ class H(BaseHTTPRequestHandler):
                     return self.send(405, {"error": "method not allowed"})
                 c.commit()
                 return self.send(200, {"ok": True, "key": key})
+            m = re.fullmatch(r"/api/devices/(\d+)/family", path)
+            if m and method == "GET":
+                vendor, others = family(db(), m.group(1))
+                return self.send(200, {"vendor": vendor, "count": len(others), "names": [n for _, n in others]})
             m = re.fullmatch(r"/api/devices(?:/(\d+))?", path)
             if not m:
                 return self.send(404, {"error": "not found"})
@@ -584,8 +602,14 @@ class H(BaseHTTPRequestHandler):
                 r = check_type(c, clean(self.body()))
                 c.execute("INSERT INTO devices (name,ip,mac,vendor,type,notes,reserved,icon,color) VALUES (:name,:ip,:mac,:vendor,:type,:notes,:reserved,:icon,:color)", r)
             elif method == "PUT" and did:
-                r = check_type(c, clean(self.body()))
+                b = self.body()
+                r = check_type(c, clean(b))
                 c.execute("UPDATE devices SET name=:name,ip=:ip,mac=:mac,vendor=:vendor,type=:type,notes=:notes,reserved=:reserved,icon=:icon,color=:color WHERE id=:id", {**r, "id": did})
+                if b.get("family"):  # forced: also replaces a look the others already have
+                    others = family(c, did)[1]
+                    c.executemany("UPDATE devices SET icon=?, color=? WHERE id=?", [(r["icon"], r["color"], i) for i, _ in others])
+                    c.commit()
+                    return self.send(200, {"ok": True, "family": len(others)})
             elif method == "DELETE" and did:
                 c.execute("DELETE FROM devices WHERE id=?", (did,))
             else:

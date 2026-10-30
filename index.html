@@ -108,6 +108,8 @@ header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
   <h1><img src="/logo.svg" alt="" width="34" height="34">LANtern<small data-i="app.tag"></small></h1>
   <button class="chip" id="discover" data-it="disc.t"><svg class="i" viewBox="0 0 24 24"><use href="#i-radar"/></svg><span class="lbl" data-i="disc"></span></button>
   <button class="chip" id="scanall" data-it="scan.all.t"><svg class="i" viewBox="0 0 24 24"><use href="#i-scan"/></svg><span class="lbl" data-i="scan.all"></span></button>
+  <button class="chip" id="import" data-it="imp.t"><svg class="i" viewBox="0 0 24 24"><use href="#i-upload"/></svg><span class="lbl" data-i="imp"></span></button>
+  <input type="file" id="impf" accept=".csv,.xml,.txt,text/csv,text/xml" hidden>
   <a class="chip" id="xcsv" href="/api/export.csv" download data-it="exp.csv"><svg class="i" viewBox="0 0 24 24"><use href="#i-download"/></svg><span class="lbl">CSV</span></a>
   <a class="chip" id="xxlsx" href="/api/export.xlsx" download data-it="exp.xlsx"><svg class="i" viewBox="0 0 24 24"><use href="#i-download"/></svg><span class="lbl">Excel</span></a>
   <span id="ts" style="color:var(--on2)"></span>
@@ -196,6 +198,7 @@ scan:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4"/>',
 sort:'<path d="M3 6h10M3 12h7M3 18h4M17 6v12M14 15l3 3 3-3"/>',
 tag:'<path d="M3 12V4h8l10 10-8 8z"/><path d="M7.5 8.5h.01"/>',
 rules:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+upload:'<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>',
 download:'<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
 trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'};
 const FLAGS={
@@ -203,7 +206,7 @@ it:'<svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="
 en:'<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice"><rect width="60" height="30" fill="#012169"/><path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L60 30M60 0L0 30" stroke="#c8102e" stroke-width="2"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/></svg>'};
 const LANGS={it:'Italiano',en:'English'};
 const L={
-it:{'disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
+it:{'imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note','f.on':'Online','f.off':'Offline','f.dyn':'Solo dinamici',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
@@ -221,7 +224,7 @@ it:{'disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi',
 'rf.mac':'MAC inizia con','rf.name':'Nome contiene','rf.ports':'Porta aperta','rf.vendor':'Produttore contiene','rules.pattern':'testo','rules.add':'Aggiungi',
 'oui.info':'{n} prefissi - fonte: {s} - aggiornato il {d}','oui.empty':'Database OUI vuoto','oui.update':'Aggiorna da IEEE','oui.busy':'Download in corso...',
 'sug.prefix':'Suggerito:','sug.vendor':'produttore {v}','sug.cat':'categoria {c} (regola {r})','sug.apply':'Applica','sug.local':'MAC locale o privato: il produttore non si può ricavare dal MAC'},
-en:{'disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
+en:{'imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes','f.on':'Online','f.off':'Offline','f.dyn':'Dynamic only',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
@@ -323,6 +326,9 @@ async function discover(auto){
   const b=$('#discover');b.classList.add('spin');b.disabled=true;
   try{const r=await api('POST','/api/discover');await load();if(!auto||r.added)alert(t('disc.res',{f:r.found,a:r.added}))}
   catch(x){alert(x.message)}finally{b.classList.remove('spin');b.disabled=false}}
+$('#import').onclick=()=>$('#impf').click();
+$('#impf').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const r=await api('POST','/api/import',{text:await f.text()});await load();alert(t('imp.res',{r:r.read,a:r.added,s:r.skipped}))}catch(x){alert(x.message)}};
 $('#discover').onclick=()=>discover(false);
 $('#scanall').onclick=()=>{const ids=devices.filter(d=>d.ip&&d.status&&d.status!=='off'&&!scanning.has(d.id)).map(d=>d.id);if(ids.length&&confirm(t('scan.confirm',{n:ids.length})))scan(ids)};
 $('#refresh').onclick=load;$('#q').oninput=render;

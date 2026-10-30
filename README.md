@@ -17,7 +17,7 @@ Python standard library only. No login, no cloud, one SQLite file.</p>
 - Port scan, per device or for all online devices. Separate from the refresh.
 - Editable categories (name, icon, icon color) and filters, sort by type.
 - Recognition: vendor from the MAC prefix (IEEE OUI database, updatable in one click), category from editable rules. LANtern suggests, you confirm.
-- CSV and Excel export.
+- CSV and Excel export. Import from a CSV (LANtern's own export works as a backup) or an nmap XML (`nmap -sn -oX`). Known MACs are never overwritten.
 - Light and dark theme, font size, Italian and English (flag in the top bar).
 
 ## Run
@@ -36,7 +36,7 @@ Needs Python 3. `nmap` is optional (port scan only). Uses `ping` and `ip neigh`,
 |---|---|---|
 | `port` (argument) | `8099` | HTTP port |
 | `LANTERN_DB` (env) | `devices.db` next to `app.py` | SQLite file |
-| `seed.local.json` | none | Optional first-run import: `[[name, ip, mac, vendor, type, notes, reserved], ...]`, `reserved` = 0 dynamic, 1 reservation, 2 fixed |
+| `seed.local.json` | none | Optional automatic import on first start (same as the Import button, JSON): `[[name, ip, mac, vendor, type, notes, reserved], ...]`, `reserved` = 0 dynamic, 1 reservation, 2 fixed |
 
 The database starts empty and fills itself with a discovery on first start. `seed.local.json` is only needed to import data you already have.
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """LANtern: LAN inventory and radar (standard library only). Usage: python3 app.py [port]"""
 import csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, zipfile
+import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 DIR = Path(__file__).parent
 DB = Path(os.environ.get("LANTERN_DB", DIR / "devices.db"))
 FIELDS = ("name", "ip", "mac", "vendor", "type", "notes", "reserved")
@@ -178,6 +179,13 @@ def suggest(c, mac, name, ports):
     return {"vendor": vendor, "local": local, "category": None, "rule": None}
 
 
+def add_new(c, name, ip, mac, vendor="", type="", notes="", reserved=0):
+    """Insert a device unless its MAC is already known; vendor and category come from OUI and rules when missing."""
+    s = suggest(c, mac, name, "")
+    return c.execute("INSERT OR IGNORE INTO devices (name,ip,mac,vendor,type,notes,reserved) VALUES (?,?,?,?,?,?,?)",
+                     (name or s["vendor"] or f"Device {ip}", ip, mac, vendor or s["vendor"], type or s["category"] or "iot", notes, reserved)).rowcount
+
+
 def discover(c):
     """Ping-sweep the local subnets, read the ARP table, add the MACs not in the inventory yet."""
     out = subprocess.run(["ip", "-o", "-4", "addr", "show", "scope", "global"], capture_output=True, text=True, timeout=10).stdout
@@ -209,13 +217,58 @@ def discover(c):
             return ""
     with ThreadPoolExecutor(32) as ex:
         names = dict(zip(found, ex.map(host, found.values())))
-    added = 0
-    for mac, ip in found.items():
-        s = suggest(c, mac, names[mac], "")
-        added += c.execute("INSERT OR IGNORE INTO devices (name,ip,mac,vendor,type,notes,reserved) VALUES (?,?,?,?,?,?,0)",
-                           (names[mac] or s["vendor"] or f"Device {ip}", ip, mac, s["vendor"], s["category"] or "iot", "")).rowcount
+    added = sum(add_new(c, names[mac], ip, mac) for mac, ip in found.items())
     c.commit()
     return {"found": len(found), "added": added}
+
+
+COLUMNS = {"name": ("name", "nome", "hostname", "host name", "device"), "ip": ("ip", "ip address", "address", "ipv4"),
+           "mac": ("mac", "mac address", "hardware address", "mac_address"), "vendor": ("vendor", "produttore", "manufacturer"),
+           "type": ("type", "tipo", "category", "categoria"), "notes": ("notes", "note"),
+           "reserved": ("ip assignment", "assegnazione ip", "assignment", "reserved")}
+ASSIGN_IN = {"0": 0, "dynamic": 0, "dinamico": 0, "1": 1, "reservation": 1, "2": 2, "static": 2, "fisso": 2, "fixed": 2}
+
+
+def norm_mac(m):
+    m = re.sub(r"[^0-9a-f]", "", m.lower())
+    return ":".join(m[i:i + 2] for i in range(0, 12, 2)) if len(m) == 12 else ""
+
+
+def import_rows(c, text):
+    """Import a LANtern/generic CSV or an nmap XML (-oX). Known MACs are left untouched."""
+    text = text.lstrip("\ufeff").strip()
+    rows = []
+    if text.startswith("<"):  # shortcut: ElementTree does not guard against hostile XML, fine for your own files
+        for h in ET.fromstring(text).iter("host"):
+            a = {x.get("addrtype"): x for x in h.iter("address")}
+            n = h.find("hostnames/hostname")
+            rows.append({"mac": a["mac"].get("addr", "") if "mac" in a else "", "ip": a["ipv4"].get("addr", "") if "ipv4" in a else "",
+                         "name": n.get("name", "") if n is not None else "", "vendor": a["mac"].get("vendor", "") if "mac" in a else ""})
+    else:
+        sample = text.split("\n", 1)[0]
+        rd = csv.reader(io.StringIO(text), delimiter=";" if sample.count(";") > sample.count(",") else ",")
+        head = [h.strip().lower() for h in next(rd, [])]
+        col = {k: next((head.index(n) for n in names if n in head), None) for k, names in COLUMNS.items()}
+        if col["mac"] is None:
+            raise ValueError("no MAC column found (expected a header such as 'MAC')")
+        for r in rd:
+            rows.append({k: r[i].strip() if i is not None and i < len(r) else "" for k, i in col.items()})
+    keys = {k: k for k, in c.execute("SELECT key FROM categories")} | {l.lower(): k for k, l in c.execute("SELECT key, label FROM categories")}
+    added = skipped = 0
+    for r in rows:
+        mac = norm_mac(r.get("mac", ""))
+        ip = r.get("ip", "")
+        try:
+            ipaddress.IPv4Address(ip) if ip else None
+        except ValueError:
+            ip = ""
+        if not mac:
+            skipped += 1
+            continue
+        added += add_new(c, r.get("name", "")[:60], ip, mac, r.get("vendor", "")[:60], keys.get(r.get("type", "").lower(), ""),
+                         r.get("notes", "")[:200], ASSIGN_IN.get(r.get("reserved", "").lower(), 0))
+    c.commit()
+    return {"read": len(rows), "added": added, "skipped": skipped}
 
 
 def clean_rule(c, data):
@@ -307,6 +360,8 @@ class H(BaseHTTPRequestHandler):
                 c = db()
                 oui_update(c)
                 return self.send(200, oui_info(c))
+            if method == "POST" and path == "/api/import":
+                return self.send(200, import_rows(db(), str(self.body().get("text", ""))))
             if method == "POST" and path == "/api/discover":
                 return self.send(200, discover(db()))
             if method == "POST" and path == "/api/suggest":
@@ -378,7 +433,7 @@ class H(BaseHTTPRequestHandler):
             self.send(502, {"error": f"operation failed (is nmap installed? network?): {e}"})
         except sqlite3.IntegrityError:
             self.send(409, {"error": "MAC already present"})
-        except (ValueError, json.JSONDecodeError) as e:
+        except (ValueError, json.JSONDecodeError, ET.ParseError, csv.Error) as e:
             self.send(400, {"error": str(e)})
 
     do_GET = lambda s: s.route("GET")

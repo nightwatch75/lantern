@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """LANtern: LAN inventory and radar (standard library only). Usage: python3 app.py [port]"""
-import csv, io, ipaddress, json, os, re, sqlite3, subprocess, sys, urllib.request, zipfile
+import csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, zipfile
 from xml.sax.saxutils import escape
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 DIR = Path(__file__).parent
 DB = Path(os.environ.get("LANTERN_DB", DIR / "devices.db"))
 FIELDS = ("name", "ip", "mac", "vendor", "type", "notes", "reserved")
@@ -178,6 +178,46 @@ def suggest(c, mac, name, ports):
     return {"vendor": vendor, "local": local, "category": None, "rule": None}
 
 
+def discover(c):
+    """Ping-sweep the local subnets, read the ARP table, add the MACs not in the inventory yet."""
+    out = subprocess.run(["ip", "-o", "-4", "addr", "show", "scope", "global"], capture_output=True, text=True, timeout=10).stdout
+    found, nets = {}, []  # mac -> ip
+    for dev, addr in re.findall(r"^\d+:\s+(\S+)\s+inet (\S+)", out, re.M):
+        if re.match(r"(docker|br-|veth|virbr|tun|tap|lo)", dev):  # containers and VPNs are not the LAN
+            continue
+        i = ipaddress.ip_interface(addr)
+        nets.append(ipaddress.ip_network(f"{i.ip}/{max(i.network.prefixlen, 22)}", strict=False))  # shortcut: never sweep more than a /22
+        try:  # this host does not show up in its own ARP table
+            found[Path(f"/sys/class/net/{dev}/address").read_text().strip().lower()] = str(i.ip)
+        except OSError:
+            pass
+    ping = lambda ip: subprocess.run(["ping", "-c1", "-W1", str(ip)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+    with ThreadPoolExecutor(64) as ex:
+        list(ex.map(ping, [h for n in nets for h in n.hosts()]))
+    for ip, mac in re.findall(r"^(\S+) dev \S+ lladdr (\S+)", subprocess.run(["ip", "neigh", "show"], capture_output=True, text=True).stdout, re.M):
+        if ":" not in ip and any(ipaddress.ip_address(ip) in n for n in nets):
+            found.setdefault(mac.lower(), ip)
+    if not c.execute("SELECT 1 FROM oui").fetchone():  # fresh machine without a system OUI file
+        try:
+            oui_update(c)
+        except (OSError, ValueError):
+            pass
+    def host(ip):
+        try:
+            return socket.gethostbyaddr(ip)[0]
+        except OSError:
+            return ""
+    with ThreadPoolExecutor(32) as ex:
+        names = dict(zip(found, ex.map(host, found.values())))
+    added = 0
+    for mac, ip in found.items():
+        s = suggest(c, mac, names[mac], "")
+        added += c.execute("INSERT OR IGNORE INTO devices (name,ip,mac,vendor,type,notes,reserved) VALUES (?,?,?,?,?,?,0)",
+                           (names[mac] or s["vendor"] or f"Device {ip}", ip, mac, s["vendor"], s["category"] or "iot", "")).rowcount
+    c.commit()
+    return {"found": len(found), "added": added}
+
+
 def clean_rule(c, data):
     r = {k: str(data.get(k, "")).strip() for k in ("field", "pattern", "category")}
     if r["field"] not in FIELDS_RULE or not r["pattern"] or len(r["pattern"]) > 60:
@@ -267,6 +307,8 @@ class H(BaseHTTPRequestHandler):
                 c = db()
                 oui_update(c)
                 return self.send(200, oui_info(c))
+            if method == "POST" and path == "/api/discover":
+                return self.send(200, discover(db()))
             if method == "POST" and path == "/api/suggest":
                 b = self.body()
                 return self.send(200, suggest(db(), str(b.get("mac", "")), str(b.get("name", "")), str(b.get("ports", ""))))

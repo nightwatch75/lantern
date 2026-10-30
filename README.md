@@ -10,6 +10,7 @@ Python standard library only. No login, no cloud, one SQLite file.</p>
 
 ## What it does
 
+- First start: LANtern discovers the devices on its own (ping sweep + ARP). The **Discover** button repeats it and adds only the new ones.
 - Inventory of every device by MAC: name, IP, vendor, notes, category.
 - Live status: online, offline, or "MAC differs" when an IP answers with another MAC.
 - IP assignment per device: dynamic, DHCP reservation, or fixed on the device.
@@ -27,7 +28,7 @@ python3 app.py [port]
 
 Open `http://127.0.0.1:8099`. Run it on a machine inside the LAN you want to watch.
 
-Needs Python 3. `nmap` is optional (port scan only). Uses `ping` and `ip neigh`, so Linux.
+Needs Python 3. `nmap` is optional (port scan only). Uses `ping` and `ip neigh`, so Linux. Discovery sweeps the local subnets (at most a /22 each, container and VPN interfaces skipped) and sees only the devices that answer ping or ARP.
 
 ## Options
 
@@ -37,7 +38,7 @@ Needs Python 3. `nmap` is optional (port scan only). Uses `ping` and `ip neigh`,
 | `LANTERN_DB` (env) | `devices.db` next to `app.py` | SQLite file |
 | `seed.local.json` | none | Optional first-run import: `[[name, ip, mac, vendor, type, notes, reserved], ...]`, `reserved` = 0 dynamic, 1 reservation, 2 fixed |
 
-The database starts empty. Add devices from the UI.
+The database starts empty and fills itself with a discovery on first start. `seed.local.json` is only needed to import data you already have.
 
 ## Security
 

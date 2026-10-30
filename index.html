@@ -88,11 +88,12 @@ label input:focus,label select:focus,label textarea:focus{outline:2px solid var(
 .lang{position:relative}
 .menu{position:absolute;right:0;top:100%;background:var(--surface);border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.3);padding:6px;z-index:10;min-width:10em}
 .menu[hidden]{display:none}
+.menu.themes{min-width:19em;max-height:min(70vh,32em);overflow-y:auto}.menu.themes button{justify-content:space-between;white-space:nowrap}svg.sw{width:86px;height:22px;flex:none}#theme{width:auto;padding:0 6px}#theme svg.sw{width:62px;height:16px}
 .menu button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--on);padding:8px 10px;border-radius:8px;font:inherit;cursor:pointer}
 .menu button:hover,.menu button[aria-pressed=true]{background:var(--surface2)}
 .flag{width:2em;height:1.4em;border-radius:3px;box-shadow:0 0 0 1px var(--line);display:block}
 header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
-@media (max-width:760px){header h1 small{display:none}}
+@media (max-width:1400px){header h1 small{display:none}}
 .sug{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--pc);border-radius:12px;padding:8px 12px;margin-bottom:12px}
 .sug[hidden]{display:none}
 .rrow,.radd{display:grid;grid-template-columns:1.2fr 1.4fr 1.2fr auto;gap:6px;margin-bottom:6px;align-items:center}
@@ -120,7 +121,7 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
   <button class="icon-btn" id="refresh" data-it="refresh"><svg class="i" viewBox="0 0 24 24"><use href="#i-refresh"/></svg></button>
   <button class="icon-btn fs" id="fsm" data-it="fs.m">A-</button>
   <button class="icon-btn fs" id="fsp" data-it="fs.p">A+</button>
-  <button class="icon-btn" id="theme" data-it="theme"><svg class="i" viewBox="0 0 24 24"><use href="#i-theme"/></svg></button>
+  <div class="lang"><button class="icon-btn" id="theme" data-it="theme"></button><div class="menu themes" id="tmenu" hidden></div></div>
   <div class="lang"><button class="icon-btn" id="langbtn" data-it="lang"></button><div class="menu" id="lmenu" hidden></div></div>
 </header>
 <main>
@@ -210,7 +211,7 @@ it:'<svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="
 en:'<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice"><rect width="60" height="30" fill="#012169"/><path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L60 30M60 0L0 30" stroke="#c8102e" stroke-width="2"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/></svg>'};
 const LANGS={it:'Italiano',en:'English'};
 const L={
-it:{'auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
+it:{'theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
@@ -228,7 +229,7 @@ it:{'auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Rip
 'rf.mac':'MAC inizia con','rf.name':'Nome contiene','rf.ports':'Porta aperta','rf.vendor':'Produttore contiene','rules.pattern':'testo','rules.add':'Aggiungi',
 'oui.info':'{n} prefissi - fonte: {s} - aggiornato il {d}','oui.empty':'Database OUI vuoto','oui.update':'Aggiorna da IEEE','oui.busy':'Download in corso...',
 'sug.prefix':'Suggerito:','sug.vendor':'produttore {v}','sug.cat':'categoria {c} (regola {r})','sug.apply':'Applica','sug.local':'MAC locale o privato: il produttore non si può ricavare dal MAC'},
-en:{'auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
+en:{'theme.cl':'Classic Light','theme.cd':'Classic Dark','auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
@@ -264,10 +265,30 @@ const fillTypes=()=>{$('#type').innerHTML=cats.map(c=>`<option value="${esc(c.ke
 
 // tema e font
 const root=document.documentElement;
-try{const th=localStorage.getItem('theme');if(th)root.dataset.theme=th}catch{}
-$('#theme').onclick=()=>{
-  const dark=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
-  root.dataset.theme=dark?'light':'dark';try{localStorage.setItem('theme',root.dataset.theme)}catch{}};
+const PAL=[["ayu","Ayu",["#e6b450","#aad94c","#39bae6","#d95757"],[["#0b0e14","#1e222a","#151920","#565b66","#d1d1c7","#8e959e","#e6b450","#0b0e14"],["#f8f9fa","#e4e6e9","#edeff1","#8a9199","#42474c","#6e757c","#ff8f40","#f8f9fa"]]],["catppuccin","Catppuccin",["#cba6f7","#fab387","#94e2d5","#f38ba8"],[["#1e1e2e","#313244","#28293a","#4c4f69","#cdd6f4","#a3b4eb","#cba6f7","#11111b"],["#eff1f5","#ccd0da","#dcdfe6","#a5adcb","#4c4f69","#6c6f85","#8839ef","#eff1f5"]]],["dracula","Dracula",["#bd93f9","#ff79c6","#8be9fd","#ff5555"],[["#282a36","#44475a","#373a4a","#5a5e77","#f8f8f2","#d6d8e0","#bd93f9","#282a36"],["#f8f8f2","#e6e6ea","#eeeeee","#cacad3","#282a36","#44475a","#8332f4","#ffffff"]]],["eldritch","Eldritch",["#37f499","#04d1f9","#a48cf2","#f16c75"],[["#212337","#292e42","#25293d","#3b4261","#ebfafa","#abb4da","#37f499","#171928"],["#f0f3f4","#d5d9db","#e1e5e6","#c9cbcd","#1e2029","#1e2029","#fb5bb6","#1e2029"]]],["everforest","Everforest",["#a7c080","#83c092","#dbbc7f","#e67e80"],[["#2d353b","#343f44","#232a2e","#475258","#d3c6aa","#9da9a0","#a7c080","#2d353b"],0]],["github","GitHub Dark",["#58a6ff","#3fb950","#ab7df8","#f85149"],[["#0d1117","#151b23","#010409","#3d444d","#f0f6fc","#9198a1","#58a6ff","#0d1117"],0]],["gruvbox","Gruvbox",["#b8bb26","#fabd2f","#83a598","#fb4934"],[["#282828","#3c3836","#333130","#57514e","#fbf1c7","#ebdbb2","#b8bb26","#282828"],["#fbf1c7","#ebdbb2","#f2e5bb","#bdae93","#3c3836","#7c6f64","#98971a","#fbf1c7"]]],["kanagawa","Kanagawa",["#76946a","#c0a36e","#7e9cd8","#c34043"],[["#1f1f28","#2a2a37","#252530","#363646","#c8c093","#717c7c","#76946a","#1f1f28"],["#f2ecbc","#e5ddb0","#ebe4b5","#cfc49c","#545464","#8a8980","#6f894e","#f2ecbc"]]],["material","Material Dark",["#80cbc4","#c3e88d","#82aaff","#f07178"],[["#212121","#2a2a2a","#1a1a1a","#343434","#eeffff","#8f93a2","#80cbc4","#212121"],0]],["monokai","Monokai",["#f92672","#a6e22e","#66d9ef","#e6db74"],[["#272822","#31322b","#1e1f1c","#49483e","#f8f8f2","#8f908a","#f92672","#272822"],0]],["monokai-pro","Monokai Pro",["#ff6188","#a9dc76","#78dce8","#ffd866"],[["#2d2a2e","#363337","#221f22","#5b595c","#fcfcfa","#939293","#ff6188","#2d2a2e"],0]],["nord","Nord",["#8fbcbb","#88c0d0","#5e81ac","#bf616a"],[["#2e3440","#3b4252","#353c4a","#505a70","#eceff4","#d8dee9","#8fbcbb","#2e3440"],["#eceff4","#e5e9f0","#e8ecf2","#c5cedd","#2e3440","#4c566a","#5e81ac","#eceff4"]]],["onedark","One Dark",["#61afef","#98c379","#c678dd","#e06c75"],[["#282c34","#2c323c","#21252b","#3e4452","#abb2bf","#7f848e","#61afef","#282c34"],0]],["palenight","Palenight",["#c792ea","#c3e88d","#82b1ff","#ff5370"],[["#292d3e","#32364a","#232635","#444267","#a6accd","#7f85a8","#c792ea","#292d3e"],0]],["rosepine","Ros\u00e9 Pine",["#ebbcba","#9ccfd8","#31748f","#eb6f92"],[["#191724","#26233a","#201e30","#403d52","#e0def4","#908caa","#ebbcba","#191724"],["#fffaf3","#f2e9e1","#f8f1e9","#dfdad9","#575279","#797593","#d7827e","#faf4ed"]]],["rosepine-moon","Ros\u00e9 Pine Moon",["#c4a7e7","#9ccfd8","#ea9a97","#eb6f92"],[["#232136","#2a273f","#393552","#44415a","#e0def4","#908caa","#c4a7e7","#232136"],0]],["solarized","Solarized Dark",["#268bd2","#859900","#b58900","#dc322f"],[["#002b36","#073642","#00212b","#1c4a57","#93a1a1","#839496","#268bd2","#002b36"],0]],["tokyonight","Tokyo-Night",["#7aa2f7","#bb9af7","#9ece6a","#f7768e"],[["#1a1b26","#24283b","#202232","#353d57","#c0caf5","#9aa5ce","#7aa2f7","#16161e"],["#e1e2e7","#d0d5e3","#d8dbe5","#b4b5b9","#3760bf","#6172b0","#2e7de9","#e1e2e7"]]]];  // [key, name, 4 dots, [dark, light], each: bg card input border text muted accent onaccent]; colors: Noctalia palettes (MIT) via NaviradioManagerPlus
+const CL={id:'classic:light',k:'theme.cl',mode:'light',dots:['#3f51b5','#1b8a4b','#9a5b00','#ba1a1a'],bg:'#f7f8fc',line:'#d9dbe6'},
+  CD={id:'classic:dark',k:'theme.cd',mode:'dark',dots:['#b8c3ff','#6ddc98','#ffc46b','#ffb4ab'],bg:'#111318',line:'#363946'};
+const THEMES=[CL,CD];
+for(const [key,name,dots,vs] of PAL)vs.forEach((v,i)=>{if(!v)return;const mode=i?'light':'dark',[bg,card,input,border,text,muted,accent,onacc]=v;
+  THEMES.push({id:key+':'+mode,n:vs[0]&&vs[1]?name+(i?' Light':' Dark'):name,mode,dots,bg,line:border,
+    vars:{'--bg':bg,'--surface':card,'--surface2':input,'--on':text,'--on2':muted,'--line':`color-mix(in srgb,${border} 55%,${bg})`,'--primary':accent,'--on-primary':onacc,'--pc':`color-mix(in srgb,${accent} 26%,${card})`}})});
+const swatch=th=>`<svg class="sw" viewBox="0 0 86 22"><rect x=".75" y=".75" width="84.5" height="20.5" rx="10.25" fill="${th.bg}" stroke="${th.line}" stroke-width="1.5"/>${th.dots.map((c,i)=>`<circle cx="${11+i*19}" cy="11" r="7" fill="${c}"/>`).join('')}</svg>`;
+let theme=null;try{theme=localStorage.getItem('theme')}catch{}
+if(theme==='light'||theme==='dark')theme='classic:'+theme;  // choice saved by older versions
+const osMode=()=>matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+const curTheme=()=>THEMES.find(x=>x.id===theme)||THEMES.find(x=>x.id==='classic:'+osMode());
+const thLabel=th=>th.k?t(th.k):th.n;
+const THEME_VARS=['--bg','--surface','--surface2','--on','--on2','--line','--primary','--on-primary','--pc'];
+function applyTheme(){
+  const th=curTheme();root.dataset.theme=th.mode;root.style.colorScheme=th.mode;
+  THEME_VARS.forEach(v=>root.style.removeProperty(v));
+  for(const v in th.vars||{})root.style.setProperty(v,th.vars[v]);
+  $('#theme').innerHTML=swatch(th);
+  $('#tmenu').innerHTML=THEMES.map(x=>`<button data-th="${x.id}" aria-pressed="${x===th}"><span>${esc(thLabel(x))}</span>${swatch(x)}</button>`).join('')}
+$('#theme').onclick=e=>{e.stopPropagation();$('#lmenu').hidden=true;$('#tmenu').hidden=!$('#tmenu').hidden;{const m=$('#tmenu'),c=m.querySelector('[aria-pressed=true]');if(c)m.scrollTop=c.offsetTop-m.clientHeight/2}};
+$('#tmenu').onclick=e=>{const b=e.target.closest('[data-th]');if(!b)return;theme=b.dataset.th;try{localStorage.setItem('theme',theme)}catch{}applyTheme();$('#tmenu').hidden=true};
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(!THEMES.some(x=>x.id===theme))applyTheme()});
+applyTheme();
 let fs=14;try{fs=+localStorage.getItem('fs')||14}catch{}
 const setFs=n=>{fs=Math.min(20,Math.max(11,n));root.style.setProperty('--fs',fs+'px');try{localStorage.setItem('fs',fs)}catch{}};
 setFs(fs);$('#fsm').onclick=()=>setFs(fs-1);$('#fsp').onclick=()=>setFs(fs+1);
@@ -418,16 +439,16 @@ function applyLang(){
   document.querySelectorAll('[data-it]').forEach(e=>e.title=t(e.dataset.it));
   document.querySelectorAll('[data-ip]').forEach(e=>e.placeholder=t(e.dataset.ip));
   $('#head').innerHTML=COLS.map(([k,l])=>`<th data-k="${k}">${l?t(l):''}</th>`).join('');
-  $('#langbtn').innerHTML=FLAGS[lang];
+  $('#langbtn').innerHTML=FLAGS[lang];applyTheme();
   $('#lmenu').innerHTML=Object.keys(LANGS).map(k=>`<button data-l="${k}" aria-pressed="${k===lang}">${FLAGS[k]}${LANGS[k]}</button>`).join('');
   $('#xcsv').href='/api/export.csv?lang='+lang;$('#xxlsx').href='/api/export.xlsx?lang='+lang;
   if($('#dlg').open){const v=f.type.value;fillTypes();f.type.value=v;$('#dt').textContent=t(editId?'dlg.edit':'dlg.new');suggest()}
   if($('#rdlg').open)loadRules();
   render()}
-$('#langbtn').onclick=e=>{e.stopPropagation();$('#lmenu').hidden=!$('#lmenu').hidden};
+$('#langbtn').onclick=e=>{e.stopPropagation();$('#tmenu').hidden=true;$('#lmenu').hidden=!$('#lmenu').hidden};
 $('#lmenu').onclick=e=>{const b=e.target.closest('[data-l]');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('lang',lang)}catch{}
   $('#lmenu').hidden=true;applyLang()};
-document.addEventListener('click',()=>{$('#lmenu').hidden=true});
+document.addEventListener('click',()=>{$('#lmenu').hidden=true;$('#tmenu').hidden=true});
 applyLang();load().then(()=>{if({{AUTO}}&&!devices.length)discover(true)});let auto=true;try{auto=localStorage.getItem('auto')!=='0'}catch{}
 const setAuto=v=>{auto=v;try{localStorage.setItem('auto',v?'1':'0')}catch{}
   $('#pause').dataset.it=v?'auto.pause':'auto.resume';$('#pause').setAttribute('aria-pressed',!v);

@@ -4,8 +4,9 @@
 Python standard library only. No login, no cloud, one SQLite file.</p>
 
 <p align="center">
-  <img src="docs/screenshot-light.png" width="48%" alt="Light theme">
-  <img src="docs/screenshot-dark.png" width="48%" alt="Dark theme">
+  <img src="docs/screenshot-light.png" width="32%" alt="Classic Light">
+  <img src="docs/screenshot-dark.png" width="32%" alt="Classic Dark">
+  <img src="docs/screenshot-themes.png" width="32%" alt="Theme menu">
 </p>
 
 ## What it does
@@ -18,7 +19,7 @@ Python standard library only. No login, no cloud, one SQLite file.</p>
 - Editable categories (name, icon, icon color) and filters, sort by type.
 - Recognition: vendor from the MAC prefix (IEEE OUI database, updatable in one click, registry URLs editable), category from editable rules. LANtern suggests, you confirm.
 - CSV and Excel export. Import from a CSV (LANtern's own export works as a backup) or an nmap XML (`nmap -sn -oX`). Known MACs are never overwritten.
-- Light and dark theme, font size, Italian and English (flag in the top bar).
+- 30 themes in one menu: Classic Light and Classic Dark first (the default follows your OS), then Ayu, Catppuccin, Dracula, Nord, Tokyo Night, Kanagawa and more, each with a light variant when it has one. Font size, Italian and English (flag in the top bar).
 
 ## Run
 
@@ -51,6 +52,10 @@ The database starts empty and fills itself with a discovery on first start. `see
 ## Security
 
 LANtern listens on `127.0.0.1` only and has no authentication. Do not expose it to the internet.
+
+## Credits
+
+Theme colors come from the built-in palettes of [Noctalia](https://github.com/noctalia-dev/noctalia) (MIT), as collected in [NaviradioManagerPlus](https://github.com/nightwatch75/NaviradioManagerPlus).
 
 ## License
 

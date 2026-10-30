@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 DIR = Path(__file__).parent
 DB = Path(os.environ.get("LANTERN_DB", DIR / "devices.db"))  # --db overrides
 WIN = os.name == "nt"

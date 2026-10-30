@@ -30,7 +30,7 @@ header h1 svg{color:var(--primary)}
 .icon-btn.spin svg{animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}
 main{max-width:1800px;margin:0 auto;padding:16px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
-.stat{background:var(--surface);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat{background:var(--surface);border:2px solid transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}.stat[aria-pressed=true]{border-color:var(--primary);background:var(--pc)}.stat:disabled{opacity:.55;cursor:default}
 .stat b{display:block;font-size:28px;font-weight:500}.stat span{color:var(--on2)}
 .stat.ok b{color:var(--ok)}.stat.bad b{color:var(--bad)}.stat.warn b{color:var(--warn)}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
@@ -126,9 +126,6 @@ header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
   <div class="stats" id="stats"></div>
   <div class="bar">
     <label class="search"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg><input id="q" data-ip="search"></label>
-    <button class="chip" data-f="on" aria-pressed="false" data-i="f.on"></button>
-    <button class="chip" data-f="off" aria-pressed="false" data-i="f.off"></button>
-    <button class="chip" data-f="nores" aria-pressed="false" data-i="f.dyn"></button>
   </div>
   <div class="bar" id="types"></div>
   <div class="card"><table>
@@ -214,7 +211,7 @@ const LANGS={it:'Italiano',en:'English'};
 const L={
 it:{'auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
-'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note','f.on':'Online','f.off':'Offline','f.dyn':'Solo dinamici',
+'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
 'col.status':'Stato','col.name':'Nome','col.ip':'IP','col.mac':'MAC','col.vendor':'Produttore','col.type':'Tipo','col.assign':'Assegnazione IP','col.ports':'Porte in ascolto','col.notes':'Note',
 'st.on':'Online','st.off':'Offline','st.conflict':'MAC diverso','st.na':'N/D','as.0':'Dinamico','as.1':'Reservation','as.2':'Fisso',
@@ -232,7 +229,7 @@ it:{'auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Rip
 'sug.prefix':'Suggerito:','sug.vendor':'produttore {v}','sug.cat':'categoria {c} (regola {r})','sug.apply':'Applica','sug.local':'MAC locale o privato: il produttore non si può ricavare dal MAC'},
 en:{'auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
-'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes','f.on':'Online','f.off':'Offline','f.dyn':'Dynamic only',
+'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
 'col.status':'Status','col.name':'Name','col.ip':'IP','col.mac':'MAC','col.vendor':'Vendor','col.type':'Type','col.assign':'IP assignment','col.ports':'Listening ports','col.notes':'Notes',
 'st.on':'Online','st.off':'Offline','st.conflict':'MAC mismatch','st.na':'N/A','as.0':'Dynamic','as.1':'Reservation','as.2':'Static',
@@ -295,7 +292,7 @@ async function scan(ids){
 function render(){
   const q=$('#q').value.toLowerCase();
   let rows=devices.filter(d=>(!q||[d.name,d.ip,d.mac,d.vendor,d.notes].join(' ').toLowerCase().includes(q))
-    &&(!filt.has('on')||d.status==='on'||d.status==='conflict')&&(!filt.has('off')||d.status==='off')&&(!filt.has('nores')||!d.reserved)&&(!tf.size||tf.has(d.type)));
+    &&(!filt.has('on')||d.status==='on'||d.status==='conflict')&&(!filt.has('off')||d.status==='off')&&(!filt.has('conflict')||d.status==='conflict')&&(!filt.has('nores')||(!d.reserved&&d.ip))&&(!tf.size||tf.has(d.type)));
   rows.sort((a,b)=>{const x=val(a,sort.k),y=val(b,sort.k);return (x>y?1:x<y?-1:ipn(a.ip)-ipn(b.ip)||0)*sort.d});
   $('#rows').innerHTML=rows.map(d=>{const[p,l]=PILL[d.status];return `<tr>
     <td><span class="pill ${p}">${t(l)}</span></td>
@@ -312,9 +309,10 @@ function render(){
     +`<button class="chip" data-cats title="${t('cats.btn.t')}">${ico('tag')}${t('cats.btn')}</button><button class="chip" data-rules title="${t('rules.btn.t')}">${ico('rules')}${t('rules.btn')}</button>`;
   renderCats();
   const n=s=>devices.filter(d=>d.status===s).length;
-  $('#stats').innerHTML=[['','stat.total',devices.length],['ok','stat.online',n('on')+n('conflict')],['bad','stat.off',n('off')],
-    ['warn','stat.conflict',n('conflict')],['','stat.dyn',devices.filter(d=>!d.reserved&&d.ip).length]]
-    .map(([c,l,v])=>`<div class="stat ${c}"><b>${v}</b><span>${t(l)}</span></div>`).join('');
+  const dyn=devices.filter(d=>!d.reserved&&d.ip).length;  // key: filter set entry; total clears everything
+  $('#stats').innerHTML=[['','stat.total',devices.length,'all'],['ok','stat.online',n('on')+n('conflict'),'on'],['bad','stat.off',n('off'),'off'],
+    ['warn','stat.conflict',n('conflict'),'conflict'],['','stat.dyn',dyn,'nores']]
+    .map(([c,l,v,k])=>`<button class="stat ${c}" data-s="${k}" aria-pressed="${k==='all'?!filt.size&&!tf.size:filt.has(k)}"${k==='conflict'&&!v?' disabled':''}><b>${v}</b><span>${t(l)}</span></button>`).join('');
   if(lastUpd)$('#ts').textContent=t('updated',{t:lastUpd.toLocaleTimeString(lang==='it'?'it-IT':'en-GB')});
 }
 async function api(m,u,b){const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:b&&JSON.stringify(b)});
@@ -338,12 +336,10 @@ $('#impf').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)
 $('#discover').onclick=()=>discover(false);
 $('#scanall').onclick=()=>{const ids=devices.filter(d=>d.ip&&d.status&&d.status!=='off'&&!scanning.has(d.id)).map(d=>d.id);if(ids.length&&confirm(t('scan.confirm',{n:ids.length})))scan(ids)};
 $('#refresh').onclick=load;$('#q').oninput=render;
-document.querySelectorAll('.bar:not(#types) > .chip').forEach(c=>c.onclick=()=>{
-  const f=c.dataset.f,on=c.getAttribute('aria-pressed')!=='true';c.setAttribute('aria-pressed',on);
-  on?filt.add(f):filt.delete(f);
-  if(on&&f==='on'){filt.delete('off');document.querySelector('[data-f=off]').setAttribute('aria-pressed',false)}
-  if(on&&f==='off'){filt.delete('on');document.querySelector('[data-f=on]').setAttribute('aria-pressed',false)}
-  render()});
+$('#stats').onclick=e=>{const k=e.target.closest('[data-s]')?.dataset.s;if(!k)return;
+  if(k==='all'){filt.clear();tf.clear();return render()}
+  if(filt.has(k))filt.delete(k);else{if(k!=='nores')['on','off','conflict'].forEach(x=>filt.delete(x));filt.add(k)}  // statuses exclude each other
+  render()};
 
 // device
 let editId=null;const f=$('#form');

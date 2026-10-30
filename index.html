@@ -100,6 +100,7 @@ header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
 #rlist{max-height:40vh;overflow:auto;margin:10px 0}
 #rdlg{width:min(720px,96vw)}
 .oui{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--on2)}.oui span{flex:1}
+.ouiurls{display:grid;gap:4px;font-size:.86em;color:var(--on2);margin-top:12px}.ouiurls textarea{font:inherit;font-family:ui-monospace,monospace;font-size:.9em;padding:8px;border-radius:8px;border:1px solid var(--line,var(--on2));background:transparent;color:var(--on);resize:vertical;width:100%;box-sizing:border-box}
 </style>
 </head>
 <body>
@@ -148,6 +149,7 @@ header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
 </form></dialog>
 <dialog id="rdlg">
   <h2 data-i="rules.title"></h2>
+  <label class="ouiurls"><span data-i="oui.urls"></span><textarea id="ouiurls" rows="3" spellcheck="false"></textarea></label>
   <div class="oui"><span id="ouiinfo"></span><button type="button" class="btn" id="ouiupd" data-i="oui.update"></button></div>
   <p style="color:var(--on2);margin:8px 0 0" data-i="rules.hint"></p>
   <div id="rlist"></div>
@@ -206,7 +208,7 @@ it:'<svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="
 en:'<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice"><rect width="60" height="30" fill="#012169"/><path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L60 30M60 0L0 30" stroke="#c8102e" stroke-width="2"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/></svg>'};
 const LANGS={it:'Italiano',en:'English'};
 const L={
-it:{'imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
+it:{'oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note','f.on':'Online','f.off':'Offline','f.dyn':'Solo dinamici',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
@@ -224,7 +226,7 @@ it:{'imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti 
 'rf.mac':'MAC inizia con','rf.name':'Nome contiene','rf.ports':'Porta aperta','rf.vendor':'Produttore contiene','rules.pattern':'testo','rules.add':'Aggiungi',
 'oui.info':'{n} prefissi - fonte: {s} - aggiornato il {d}','oui.empty':'Database OUI vuoto','oui.update':'Aggiorna da IEEE','oui.busy':'Download in corso...',
 'sug.prefix':'Suggerito:','sug.vendor':'produttore {v}','sug.cat':'categoria {c} (regola {r})','sug.apply':'Applica','sug.local':'MAC locale o privato: il produttore non si può ricavare dal MAC'},
-en:{'imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
+en:{'oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes','f.on':'Online','f.off':'Offline','f.dyn':'Dynamic only',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
@@ -396,6 +398,7 @@ const fieldOpts=v=>['mac','name','ports','vendor'].map(k=>`<option value="${k}"$
 const catOpts=v=>cats.map(c=>`<option value="${esc(c.key)}"${c.key===v?' selected':''}>${esc(catLabel(c))}</option>`).join('');
 async function loadRules(){
   const [rules,oui]=await Promise.all([api('GET','/api/rules'),api('GET','/api/oui')]);
+  $('#ouiurls').value=oui.urls.join('\n');
   $('#ouiinfo').textContent=oui.count?t('oui.info',{n:oui.count,s:oui.source,d:oui.updated}):t('oui.empty');
   $('#rlist').innerHTML=rules.map(r=>`<div class="rrow" data-id="${r.id}"><select data-k="field">${fieldOpts(r.field)}</select><input data-k="pattern" value="${esc(r.pattern)}" maxlength="60"><select data-k="category">${catOpts(r.category)}</select><button class="icon-btn" data-rx title="${t('act.del')}">${ico('trash')}</button></div>`).join('');
   $('#rnf').innerHTML=fieldOpts('vendor');$('#rnc').innerHTML=catOpts('iot')}
@@ -404,7 +407,7 @@ $('#rlist').onchange=async e=>{const row=e.target.closest('.rrow'),g=k=>row.quer
 $('#rlist').onclick=async e=>{const b=e.target.closest('[data-rx]');if(!b)return;await api('DELETE','/api/rules/'+b.closest('.rrow').dataset.id);loadRules()};
 $('#radd').onclick=async()=>{try{await api('POST','/api/rules',{field:$('#rnf').value,pattern:$('#rnp').value,category:$('#rnc').value});$('#rnp').value='';loadRules()}catch(x){alert(x.message)}};
 $('#ouiupd').onclick=async()=>{const b=$('#ouiupd');b.disabled=true;b.textContent=t('oui.busy');
-  try{await api('POST','/api/oui/update');await loadRules()}catch(x){alert(x.message)}finally{b.disabled=false;b.textContent=t('oui.update')}};
+  try{await api('POST','/api/oui/update',{urls:$('#ouiurls').value.split('\n')});await loadRules()}catch(x){alert(x.message)}finally{b.disabled=false;b.textContent=t('oui.update')}};
 $('#rclose').onclick=()=>$('#rdlg').close();
 
 // lingua

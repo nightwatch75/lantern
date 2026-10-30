@@ -141,21 +141,38 @@ def to_xlsx(rows):  # shortcut: foglio unico, solo stringhe, nessuno stile
 
 def oui_info(c):
     m = dict(c.execute("SELECT key, value FROM meta"))
-    return {"count": c.execute("SELECT COUNT(*) FROM oui").fetchone()[0], "source": m.get("oui_source", "-"), "updated": m.get("oui_updated", "-")}
+    return {"count": c.execute("SELECT COUNT(*) FROM oui").fetchone()[0], "source": m.get("oui_source", "-"), "updated": m.get("oui_updated", "-"), "urls": oui_urls(c)}
 
 
-def oui_update(c):
+def oui_urls(c):
+    r = c.execute("SELECT value FROM meta WHERE key='oui_urls'").fetchone()
+    return r[0].split("\n") if r else list(OUI_URLS)
+
+
+def oui_update(c, urls=None):
+    """Download the OUI registries (IEEE CSV or the oui.txt format) and replace the local copy."""
+    if urls is not None:
+        urls = [u.strip() for u in urls if u.strip()] or list(OUI_URLS)
+        if not all(re.match(r"https?://\S+$", u) for u in urls):  # no file:// and friends
+            raise ValueError("invalid URL (http or https only)")
+        c.execute("INSERT OR REPLACE INTO meta VALUES ('oui_urls', ?)", ("\n".join(urls),))
+    urls = urls or oui_urls(c)
     rows = {}
-    for url in OUI_URLS:
+    for url in urls:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 lan-inventory"})
         with urllib.request.urlopen(req, timeout=60) as r:
-            for rec in csv.DictReader(io.StringIO(r.read().decode("utf-8-sig"))):
+            text = r.read().decode("utf-8-sig", errors="replace")
+        if "(base 16)" in text:
+            rows.update((p, v) for p, v in re.findall(r"^([0-9A-F]{6,9})\s+\(base 16\)\s+(.+?)\s*$", text, re.M))
+        else:
+            for rec in csv.DictReader(io.StringIO(text)):
                 rows[rec["Assignment"].upper()] = rec["Organization Name"].strip()
     if not rows:
         raise ValueError("empty IEEE response")
     c.execute("DELETE FROM oui")
     c.executemany("INSERT INTO oui VALUES (?,?)", rows.items())
-    c.execute("INSERT OR REPLACE INTO meta VALUES ('oui_source', 'IEEE (MA-L, MA-M, MA-S)'), ('oui_updated', datetime('now','localtime'))")
+    src = ", ".join(dict.fromkeys(u.split("/")[2] for u in urls))
+    c.execute("INSERT OR REPLACE INTO meta VALUES ('oui_source', ?), ('oui_updated', datetime('now','localtime'))", (src,))
     c.commit()
 
 
@@ -358,7 +375,8 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, oui_info(db()))
             if method == "POST" and path == "/api/oui/update":
                 c = db()
-                oui_update(c)
+                urls = self.body().get("urls")
+                oui_update(c, urls if isinstance(urls, list) else None)
                 return self.send(200, oui_info(c))
             if method == "POST" and path == "/api/import":
                 return self.send(200, import_rows(db(), str(self.body().get("text", ""))))

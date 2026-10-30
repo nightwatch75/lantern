@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LANtern</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+:root{
+  --bg:#f7f8fc;--surface:#fff;--surface2:#eef0f8;--on:#1b1b21;--on2:#5b5e70;--line:#d9dbe6;
+  --primary:#3f51b5;--on-primary:#fff;--pc:#dfe3ff;--ok:#1b8a4b;--okc:#d4f3e0;--bad:#ba1a1a;--badc:#ffdad6;
+  --warn:#9a5b00;--warnc:#ffe9c2;--shadow:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#111318;--surface:#1b1d24;--surface2:#262932;--on:#e3e2e9;--on2:#a9abb9;--line:#363946;
+  --primary:#b8c3ff;--on-primary:#0b1b6b;--pc:#2c3470;--ok:#6ddc98;--okc:#0f3a22;--bad:#ffb4ab;--badc:#5c1410;
+  --warn:#ffc46b;--warnc:#4a3000;--shadow:0 1px 3px rgba(0,0,0,.5);}}
+:root[data-theme=dark]{
+  --bg:#111318;--surface:#1b1d24;--surface2:#262932;--on:#e3e2e9;--on2:#a9abb9;--line:#363946;
+  --primary:#b8c3ff;--on-primary:#0b1b6b;--pc:#2c3470;--ok:#6ddc98;--okc:#0f3a22;--bad:#ffb4ab;--badc:#5c1410;
+  --warn:#ffc46b;--warnc:#4a3000;--shadow:0 1px 3px rgba(0,0,0,.5)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--on);font-family:Roboto,system-ui,sans-serif;font-size:var(--fs,14px);line-height:1.45}
+svg.i{width:1.43em;height:1.43em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:8px 16px;min-height:60px;background:var(--surface);box-shadow:var(--shadow)}
+header h1{min-width:0;font-size:1.43em;font-weight:500;margin:0;flex:1;display:flex;align-items:center;gap:10px}
+header h1 svg{color:var(--primary)}
+.icon-btn{border:0;background:none;color:var(--on2);width:2.8em;height:2.8em;border-radius:50%;display:inline-grid;place-items:center;cursor:pointer;vertical-align:middle}
+.icon-btn:hover{background:var(--surface2);color:var(--on)}
+.icon-btn.spin svg{animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}
+main{max-width:1800px;margin:0 auto;padding:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--surface);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat b{display:block;font-size:28px;font-weight:500}.stat span{color:var(--on2)}
+.stat.ok b{color:var(--ok)}.stat.bad b{color:var(--bad)}.stat.warn b{color:var(--warn)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.search{margin:0;flex:1;min-width:200px;display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:28px;padding:0 16px;height:44px;color:var(--on2)}
+.search input{flex:1;padding:0;margin:0;width:auto;border:0;background:none;color:var(--on);font:inherit;outline:0}
+.chip{border:1px solid var(--line);background:none;color:var(--on);border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer}
+.chip{color:var(--on);text-decoration:none;display:inline-flex;align-items:center;gap:6px}.chip svg.i{width:1.3em;height:1.3em}.chip small{color:var(--on2)}
+.chip[aria-pressed=true]{background:var(--pc);border-color:transparent}
+.card{container-type:inline-size;background:var(--surface);border-radius:16px;box-shadow:var(--shadow);overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--on2);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none;white-space:nowrap}
+tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--surface2)}
+.mono{font-family:ui-monospace,monospace;font-size:13px}
+.name{display:flex;align-items:center;gap:10px}
+.ti{width:2.6em;height:2.6em;border-radius:50%;background:var(--pc);color:var(--primary);display:grid;place-items:center;flex:none}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:14px;padding:2px 10px;font-size:12px;font-weight:500}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.pill.on{color:var(--ok);background:var(--okc)}.pill.off{color:var(--bad);background:var(--badc)}
+.pill.conflict{color:var(--warn);background:var(--warnc)}.pill.na{color:var(--on2);background:var(--surface2)}
+.tag{font-size:12px;padding:2px 8px;border-radius:8px;border:1px solid var(--line);color:var(--on2)}
+.tag.f{background:var(--okc);color:var(--ok);border-color:transparent}.tag.r{background:var(--pc);color:var(--primary);border-color:transparent}
+.ports{display:flex;flex-wrap:wrap;gap:4px;max-width:260px}
+.ti.sm{width:1.9em;height:1.9em}.ti.sm svg{width:1.1em;height:1.1em}
+.crow{display:flex;align-items:center;gap:10px;padding:4px 0}.crow .cl{flex:1}.crow small{color:var(--on2)}
+.kprev{display:flex;align-items:center;gap:10px;margin-bottom:12px}.kprev input{width:3em;height:2.4em;padding:0;border:0;background:none}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(2.8em,1fr));gap:4px;max-height:13em;overflow:auto;margin-bottom:8px}
+.ib{border:1px solid var(--line);background:none;color:var(--on);border-radius:8px;padding:.5em;cursor:pointer;display:grid;place-items:center}.ib[aria-pressed=true]{background:var(--pc);border-color:var(--primary);color:var(--primary)}
+.chip.desc svg{transform:scaleY(-1)}.chip:disabled{opacity:.6;cursor:default}.chip.spin svg{animation:s 1s linear infinite}
+.notes{color:var(--on2);max-width:280px}
+.fab{position:fixed;right:24px;bottom:24px;height:56px;padding:0 20px;border:0;border-radius:16px;background:var(--primary);color:var(--on-primary);display:flex;align-items:center;gap:10px;font:500 14px inherit;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+dialog{border:0;border-radius:24px;padding:24px;width:min(480px,94vw);background:var(--surface);color:var(--on)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h2{margin:0 0 16px;font-weight:500;font-size:22px}
+label{display:block;margin-bottom:12px;color:var(--on2);font-size:12px}
+label input,label select,label textarea{display:block;width:100%;margin-top:4px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--on);font:inherit}
+label input:focus,label select:focus,label textarea:focus{outline:2px solid var(--primary);border-color:transparent}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chk{display:flex;align-items:center;gap:8px;color:var(--on)}.chk input{width:auto;margin:0}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.btn{border:0;border-radius:20px;padding:10px 20px;font:500 14px inherit;cursor:pointer;background:none;color:var(--primary)}
+.btn.f{background:var(--primary);color:var(--on-primary)}
+#err{color:var(--bad);min-height:20px}
+.fs{font-weight:600;font-size:1em;width:2.4em;height:2.4em}
+/* niente scroll orizzontale: prima si nascondono colonne secondarie, poi le righe diventano schede */
+@container (max-width:118em){th:nth-child(5),td:nth-child(5){display:none}}
+@container (max-width:104em){th:nth-child(6),td:nth-child(6){display:none}}
+@media (max-width:1100px){.lbl{display:none}}
+@container (max-width:90em){th:nth-child(9),td:nth-child(9){display:none}}
+@container (max-width:62em){
+  thead{display:none}table,tbody,tr,td:nth-child(n){display:block}
+  tr{padding:12px 14px;border-bottom:1px solid var(--line)}tr:last-child{border-bottom:0}
+  td:nth-child(n){border:0;padding:3px 0}.ports,.notes{max-width:none}
+}
+.lang{position:relative}
+.menu{position:absolute;right:0;top:100%;background:var(--surface);border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.3);padding:6px;z-index:10;min-width:10em}
+.menu[hidden]{display:none}
+.menu button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--on);padding:8px 10px;border-radius:8px;font:inherit;cursor:pointer}
+.menu button:hover,.menu button[aria-pressed=true]{background:var(--surface2)}
+.flag{width:2em;height:1.4em;border-radius:3px;box-shadow:0 0 0 1px var(--line);display:block}
+header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
+@media (max-width:760px){header h1 small{display:none}}
+.sug{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--pc);border-radius:12px;padding:8px 12px;margin-bottom:12px}
+.sug[hidden]{display:none}
+.rrow,.radd{display:grid;grid-template-columns:1.2fr 1.4fr 1.2fr auto;gap:6px;margin-bottom:6px;align-items:center}
+.rrow select,.rrow input,.radd select,.radd input{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--on);font:inherit;min-width:0;width:100%}
+#rlist{max-height:40vh;overflow:auto;margin:10px 0}
+#rdlg{width:min(720px,96vw)}
+.oui{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--on2)}.oui span{flex:1}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs id="defs"></defs></svg>
+<header>
+  <h1><img src="/logo.svg" alt="" width="34" height="34">LANtern<small data-i="app.tag"></small></h1>
+  <button class="chip" id="scanall" data-it="scan.all.t"><svg class="i" viewBox="0 0 24 24"><use href="#i-scan"/></svg><span class="lbl" data-i="scan.all"></span></button>
+  <a class="chip" id="xcsv" href="/api/export.csv" download data-it="exp.csv"><svg class="i" viewBox="0 0 24 24"><use href="#i-download"/></svg><span class="lbl">CSV</span></a>
+  <a class="chip" id="xxlsx" href="/api/export.xlsx" download data-it="exp.xlsx"><svg class="i" viewBox="0 0 24 24"><use href="#i-download"/></svg><span class="lbl">Excel</span></a>
+  <span id="ts" style="color:var(--on2)"></span>
+  <button class="icon-btn" id="refresh" data-it="refresh"><svg class="i" viewBox="0 0 24 24"><use href="#i-refresh"/></svg></button>
+  <button class="icon-btn fs" id="fsm" data-it="fs.m">A-</button>
+  <button class="icon-btn fs" id="fsp" data-it="fs.p">A+</button>
+  <button class="icon-btn" id="theme" data-it="theme"><svg class="i" viewBox="0 0 24 24"><use href="#i-theme"/></svg></button>
+  <div class="lang"><button class="icon-btn" id="langbtn" data-it="lang"></button><div class="menu" id="lmenu" hidden></div></div>
+</header>
+<main>
+  <div class="stats" id="stats"></div>
+  <div class="bar">
+    <label class="search"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg><input id="q" data-ip="search"></label>
+    <button class="chip" data-f="on" aria-pressed="false" data-i="f.on"></button>
+    <button class="chip" data-f="off" aria-pressed="false" data-i="f.off"></button>
+    <button class="chip" data-f="nores" aria-pressed="false" data-i="f.dyn"></button>
+  </div>
+  <div class="bar" id="types"></div>
+  <div class="card"><table>
+    <thead><tr id="head"></tr></thead><tbody id="rows"></tbody>
+  </table></div>
+</main>
+<button class="fab" id="add"><svg class="i" viewBox="0 0 24 24"><use href="#i-plus"/></svg><span data-i="add"></span></button>
+
+<dialog id="cdlg">
+  <h2 data-i="cat.title"></h2><div id="clist"></div>
+  <div class="actions"><button type="button" class="btn" id="cnew" data-i="cat.new"></button><button type="button" class="btn f" id="cclose" data-i="close"></button></div>
+</dialog>
+<dialog id="kdlg"><form method="dialog" id="kform">
+  <h2 id="kt"></h2>
+  <label><span data-i="f.name"></span><input name="label" required maxlength="40"></label>
+  <div class="kprev"><span id="kprev"></span><input type="color" id="kcol" data-it="cat.color"><button type="button" class="btn" id="kreset" data-i="cat.reset"></button></div>
+  <div class="igrid" id="kicons"></div>
+  <div id="kerr" style="color:var(--bad);min-height:20px"></div>
+  <div class="actions"><button type="button" class="btn" id="kcancel" data-i="cancel"></button><button class="btn f" data-i="save"></button></div>
+</form></dialog>
+<dialog id="rdlg">
+  <h2 data-i="rules.title"></h2>
+  <div class="oui"><span id="ouiinfo"></span><button type="button" class="btn" id="ouiupd" data-i="oui.update"></button></div>
+  <p style="color:var(--on2);margin:8px 0 0" data-i="rules.hint"></p>
+  <div id="rlist"></div>
+  <div class="radd"><select id="rnf"></select><input id="rnp" maxlength="60" data-ip="rules.pattern"><select id="rnc"></select><button type="button" class="btn f" id="radd" data-i="rules.add"></button></div>
+  <div class="actions"><button type="button" class="btn f" id="rclose" data-i="close"></button></div>
+</dialog>
+<dialog id="dlg"><form method="dialog" id="form">
+  <h2 id="dt"></h2>
+  <label><span data-i="f.name"></span><input name="name" required></label>
+  <div class="row"><label>IP<input name="ip" placeholder="192.168.1.x"></label>
+  <label>MAC<input name="mac" required placeholder="aa:bb:cc:dd:ee:ff"></label></div>
+  <div class="row"><label><span data-i="f.vendor"></span><input name="vendor"></label>
+  <label><span data-i="f.type"></span><select name="type" id="type"></select></label></div>
+  <div class="sug" id="sug" hidden></div>
+  <label><span data-i="f.notes"></span><textarea name="notes" rows="2"></textarea></label>
+  <label><span data-i="f.assign"></span><select name="reserved"><option value="0" data-i="as.opt0"></option><option value="1" data-i="as.opt1"></option><option value="2" data-i="as.opt2"></option></select></label>
+  <div id="err"></div>
+  <div class="actions"><button type="button" class="btn" id="cancel" data-i="cancel"></button><button class="btn f" data-i="save"></button></div>
+</form></dialog>
+
+<script>
+const ICONS={
+router:'<rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 17h.01M11 17h.01M8 10a6 6 0 0 1 8 0M5.5 7.5a10 10 0 0 1 13 0"/>',
+server:'<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>',
+wifi:'<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>',
+light:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/>',
+speaker:'<rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="15" r="3"/><path d="M12 7h.01"/>',
+tv:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+game:'<path d="M7 6h10a5 5 0 0 1 5 5v2a4 4 0 0 1-7 2.5l-.5-.5h-5l-.5.5A4 4 0 0 1 2 13v-2a5 5 0 0 1 5-5zM6 12h4M8 10v4M15 11.5h.01M17.5 13.5h.01"/>',
+computer:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+phone:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+tablet:'<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>',
+camera:'<path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/>',
+plug:'<path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/>',
+ac:'<rect x="3" y="4" width="18" height="8" rx="2"/><path d="M7 16c0 2-1 3-1 4M12 16v4M17 16c0 2 1 3 1 4M7 8h10"/>',
+vacuum:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>',
+iot:'<rect x="5" y="5" width="14" height="14" rx="3"/><circle cx="12" cy="12" r="2"/>',
+nas:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h10M7 14h4M16 14h.01"/>',
+sbc:'<rect x="3" y="6" width="18" height="12" rx="2"/><rect x="8" y="9.5" width="4" height="5"/><path d="M15 10h3M15 14h3M6 18v2M10 18v2M14 18v2"/>',
+lantern:'<path d="M10 3h4M12 3v2"/><rect x="7" y="5" width="10" height="14" rx="3"/><path d="M12 9c-1.5 2-1.5 3.5 0 5 1.5-1.5 1.5-3 0-5zM9 21h6"/>',
+refresh:'<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v4h-4"/>',
+theme:'<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/>',
+search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/>',
+plus:'<path d="M12 5v14M5 12h14"/>',
+edit:'<path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/>',
+scan:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4"/>',
+sort:'<path d="M3 6h10M3 12h7M3 18h4M17 6v12M14 15l3 3 3-3"/>',
+tag:'<path d="M3 12V4h8l10 10-8 8z"/><path d="M7.5 8.5h.01"/>',
+rules:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+download:'<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'};
+const FLAGS={
+it:'<svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/></svg>',
+en:'<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice"><rect width="60" height="30" fill="#012169"/><path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L60 30M60 0L0 30" stroke="#c8102e" stroke-width="2"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/></svg>'};
+const LANGS={it:'Italiano',en:'English'};
+const L={
+it:{'app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
+'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
+'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note','f.on':'Online','f.off':'Offline','f.dyn':'Solo dinamici',
+'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
+'col.status':'Stato','col.name':'Nome','col.ip':'IP','col.mac':'MAC','col.vendor':'Produttore','col.type':'Tipo','col.assign':'Assegnazione IP','col.ports':'Porte in ascolto','col.notes':'Note',
+'st.on':'Online','st.off':'Offline','st.conflict':'MAC diverso','st.na':'N/D','as.0':'Dinamico','as.1':'Reservation','as.2':'Fisso',
+'as.opt0':'Dinamico (DHCP)','as.opt1':'Reservation DHCP sul router','as.opt2':'Fisso (IP statico sul device)',
+'ports.never':'Mai scansionato','ports.none':'nessuna','ports.scan':'Scansione: {d}','act.edit':'Modifica','act.del':'Elimina',
+'stat.total':'Device totali','stat.online':'Online','stat.off':'Offline','stat.conflict':'MAC diverso dall\'atteso','stat.dyn':'Dinamici (con IP)',
+'add':'Nuovo device','dlg.new':'Nuovo device','dlg.edit':'Modifica device','f.name':'Nome','f.vendor':'Produttore','f.type':'Tipo','f.notes':'Note','f.assign':'Assegnazione IP',
+'save':'Salva','cancel':'Annulla','close':'Chiudi','del.confirm':'Eliminare "{n}"?',
+'cat.title':'Categorie','cat.new':'Nuova categoria','cat.edit':'Modifica categoria','cat.color':'Colore sfondo icona','cat.reset':'Colore predefinito','cat.del.confirm':'Eliminare la categoria "{n}"?',
+'cat.router':'Router','cat.server':'Server','cat.nas':'NAS','cat.sbc':'PCB / Raspberry','cat.wifi':'Extender / AP','cat.light':'Luce','cat.speaker':'Speaker','cat.tv':'TV','cat.game':'Console',
+'cat.computer':'PC','cat.phone':'Smartphone','cat.tablet':'Tablet','cat.camera':'Camera / Citofono','cat.plug':'Presa smart','cat.ac':'Climatizzatore','cat.vacuum':'Robot aspirapolvere','cat.iot':'IoT / Altro',
+'rules.title':'Regole di riconoscimento','rules.hint':'Si applica la prima regola che corrisponde: prima MAC, poi nome, porta, produttore. Il produttore deriva dal prefisso MAC (database OUI).',
+'rf.mac':'MAC inizia con','rf.name':'Nome contiene','rf.ports':'Porta aperta','rf.vendor':'Produttore contiene','rules.pattern':'testo','rules.add':'Aggiungi',
+'oui.info':'{n} prefissi - fonte: {s} - aggiornato il {d}','oui.empty':'Database OUI vuoto','oui.update':'Aggiorna da IEEE','oui.busy':'Download in corso...',
+'sug.prefix':'Suggerito:','sug.vendor':'produttore {v}','sug.cat':'categoria {c} (regola {r})','sug.apply':'Applica','sug.local':'MAC locale o privato: il produttore non si può ricavare dal MAC'},
+en:{'app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
+'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
+'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes','f.on':'Online','f.off':'Offline','f.dyn':'Dynamic only',
+'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
+'col.status':'Status','col.name':'Name','col.ip':'IP','col.mac':'MAC','col.vendor':'Vendor','col.type':'Type','col.assign':'IP assignment','col.ports':'Listening ports','col.notes':'Notes',
+'st.on':'Online','st.off':'Offline','st.conflict':'MAC mismatch','st.na':'N/A','as.0':'Dynamic','as.1':'Reservation','as.2':'Static',
+'as.opt0':'Dynamic (DHCP)','as.opt1':'DHCP reservation on the router','as.opt2':'Static (fixed IP on the device)',
+'ports.never':'Never scanned','ports.none':'none','ports.scan':'Scan: {d}','act.edit':'Edit','act.del':'Delete',
+'stat.total':'Total devices','stat.online':'Online','stat.off':'Offline','stat.conflict':'MAC differs from expected','stat.dyn':'Dynamic (with IP)',
+'add':'New device','dlg.new':'New device','dlg.edit':'Edit device','f.name':'Name','f.vendor':'Vendor','f.type':'Type','f.notes':'Notes','f.assign':'IP assignment',
+'save':'Save','cancel':'Cancel','close':'Close','del.confirm':'Delete "{n}"?',
+'cat.title':'Categories','cat.new':'New category','cat.edit':'Edit category','cat.color':'Icon background color','cat.reset':'Default color','cat.del.confirm':'Delete category "{n}"?',
+'cat.router':'Router','cat.server':'Server','cat.nas':'NAS','cat.sbc':'SBC / Raspberry','cat.wifi':'Extender / AP','cat.light':'Light','cat.speaker':'Speaker','cat.tv':'TV','cat.game':'Console',
+'cat.computer':'PC','cat.phone':'Smartphone','cat.tablet':'Tablet','cat.camera':'Camera / Intercom','cat.plug':'Smart plug','cat.ac':'Air conditioner','cat.vacuum':'Robot vacuum','cat.iot':'IoT / Other',
+'rules.title':'Recognition rules','rules.hint':'The first matching rule wins: MAC first, then name, port, vendor. Vendor comes from the MAC prefix (OUI database).',
+'rf.mac':'MAC starts with','rf.name':'Name contains','rf.ports':'Open port','rf.vendor':'Vendor contains','rules.pattern':'text','rules.add':'Add',
+'oui.info':'{n} prefixes - source: {s} - updated {d}','oui.empty':'OUI database is empty','oui.update':'Update from IEEE','oui.busy':'Downloading...',
+'sug.prefix':'Suggested:','sug.vendor':'vendor {v}','sug.cat':'category {c} (rule {r})','sug.apply':'Apply','sug.local':'Locally administered or private MAC: the vendor cannot be derived from the MAC'}};
+let lang='it';try{lang=localStorage.getItem('lang')||(navigator.language||'').slice(0,2)}catch{}
+if(!L[lang])lang='en';
+const t=(k,p)=>{let s=L[lang][k]??L.it[k]??k;for(const a in p)s=s.replace('{'+a+'}',p[a]);return s};
+
+let cats=[];
+const $=s=>document.querySelector(s);
+const ico=n=>`<svg class="i" viewBox="0 0 24 24"><use href="#i-${n}"/></svg>`;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cat=k=>cats.find(c=>c.key===k)||{key:k,label:k,icon:'iot',color:''};
+// le categorie predefinite si traducono finché il nome è quello originale; se rinominate vale il nome scelto
+const catLabel=c=>(L.it['cat.'+c.key]===c.label||L.en['cat.'+c.key]===c.label)?t('cat.'+c.key):c.label;
+document.getElementById('defs').innerHTML=Object.entries(ICONS).map(([k,v])=>`<symbol id="i-${k}" viewBox="0 0 24 24">${v}</symbol>`).join('');
+const fgOn=h=>{const n=parseInt(h.slice(1),16);return .299*(n>>16)+.587*(n>>8&255)+.114*(n&255)>150?'#1b1b21':'#fff'};
+const badge=(c,sm)=>`<span class="ti${sm?' sm':''}"${c.color?` style="background:${esc(c.color)};color:${fgOn(c.color)}"`:''}>${ico(c.icon)}</span>`;
+const fillTypes=()=>{$('#type').innerHTML=cats.map(c=>`<option value="${esc(c.key)}">${esc(catLabel(c))}</option>`).join('')};
+
+// tema e font
+const root=document.documentElement;
+try{const th=localStorage.getItem('theme');if(th)root.dataset.theme=th}catch{}
+$('#theme').onclick=()=>{
+  const dark=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
+  root.dataset.theme=dark?'light':'dark';try{localStorage.setItem('theme',root.dataset.theme)}catch{}};
+let fs=14;try{fs=+localStorage.getItem('fs')||14}catch{}
+const setFs=n=>{fs=Math.min(20,Math.max(11,n));root.style.setProperty('--fs',fs+'px');try{localStorage.setItem('fs',fs)}catch{}};
+setFs(fs);$('#fsm').onclick=()=>setFs(fs-1);$('#fsp').onclick=()=>setFs(fs+1);
+
+let devices=[],sort={k:'ip',d:1},filt=new Set(),tf=new Set(),lastUpd=null;
+const COLS=[['status','col.status'],['name','col.name'],['ip','col.ip'],['mac','col.mac'],['vendor','col.vendor'],['type','col.type'],['reserved','col.assign'],['ports','col.ports'],['notes','col.notes'],['','']];
+$('#head').onclick=e=>{const k=e.target.dataset.k;if(!k)return;sort={k,d:sort.k===k?-sort.d:1};render()};
+const ipn=ip=>ip?ip.split('.').reduce((a,b)=>a*256+ +b,0):Infinity;
+const val=(d,k)=>k==='type'?cats.findIndex(c=>c.key===d.type):k==='ip'?ipn(d.ip):k==='status'?({on:0,conflict:1,off:2}[d.status]??3):d[k];
+const PILL={on:['on','st.on'],off:['off','st.off'],conflict:['conflict','st.conflict'],null:['na','st.na']};
+
+const scanning=new Set();
+const portsCell=d=>{
+  if(!d.scanned_at)return `<span class="tag" title="${t('ports.never')}">-</span>`;
+  const p=d.ports?d.ports.split(',').map(p=>{const[n,sv]=p.split('/');return `<span class="tag mono">${esc(n)}${sv?' '+esc(sv):''}</span>`}).join(''):`<span class="tag">${t('ports.none')}</span>`;
+  return `<div class="ports" title="${esc(t('ports.scan',{d:d.scanned_at}))}">${p}</div>`};
+async function scan(ids){
+  ids.forEach(i=>scanning.add(i));$('#scanall').classList.add('spin');render();
+  try{const res=ids.length===1?await api('POST',`/api/devices/${ids[0]}/scan`):await api('POST','/api/scan',{ids});
+    res.forEach(r=>Object.assign(devices.find(d=>d.id===r.id),r))}
+  catch(x){alert(x.message)}
+  finally{ids.forEach(i=>scanning.delete(i));$('#scanall').classList.toggle('spin',scanning.size>0);render()}}
+function render(){
+  const q=$('#q').value.toLowerCase();
+  let rows=devices.filter(d=>(!q||[d.name,d.ip,d.mac,d.vendor,d.notes].join(' ').toLowerCase().includes(q))
+    &&(!filt.has('on')||d.status==='on'||d.status==='conflict')&&(!filt.has('off')||d.status==='off')&&(!filt.has('nores')||!d.reserved)&&(!tf.size||tf.has(d.type)));
+  rows.sort((a,b)=>{const x=val(a,sort.k),y=val(b,sort.k);return (x>y?1:x<y?-1:ipn(a.ip)-ipn(b.ip)||0)*sort.d});
+  $('#rows').innerHTML=rows.map(d=>{const[p,l]=PILL[d.status];return `<tr>
+    <td><span class="pill ${p}">${t(l)}</span></td>
+    <td><div class="name">${badge(cat(d.type))}${esc(d.name)}</div></td>
+    <td class="mono">${esc(d.ip)||'-'}</td><td class="mono">${esc(d.mac)}</td><td>${esc(d.vendor)}</td>
+    <td>${esc(catLabel(cat(d.type)))}</td>
+    <td><span class="tag ${['','r','f'][d.reserved]}">${t('as.'+d.reserved)}</span></td>
+    <td>${portsCell(d)}</td>
+    <td class="notes">${esc(d.notes)}</td>
+    <td style="white-space:nowrap"><button class="icon-btn ${scanning.has(d.id)?'spin':''}" data-s="${d.id}" title="${t('scan.one')}" ${d.ip&&!scanning.has(d.id)?'':'disabled'}>${ico('scan')}</button><button class="icon-btn" data-e="${d.id}" title="${t('act.edit')}">${ico('edit')}</button><button class="icon-btn" data-x="${d.id}" title="${t('act.del')}">${ico('trash')}</button></td></tr>`}).join('');
+  const cnt={};devices.forEach(d=>cnt[d.type]=(cnt[d.type]||0)+1);
+  $('#types').innerHTML=`<button class="chip ${sort.d<0?'desc':''}" data-sort aria-pressed="${sort.k==='type'}" title="${t('sort.type.t')}">${ico('sort')}${t('sort.type')}</button>`
+    +cats.filter(c=>cnt[c.key]).map(c=>`<button class="chip" data-t="${esc(c.key)}" aria-pressed="${tf.has(c.key)}">${badge(c,1)}${esc(catLabel(c))} <small>${cnt[c.key]}</small></button>`).join('')
+    +`<button class="chip" data-cats title="${t('cats.btn.t')}">${ico('tag')}${t('cats.btn')}</button><button class="chip" data-rules title="${t('rules.btn.t')}">${ico('rules')}${t('rules.btn')}</button>`;
+  renderCats();
+  const n=s=>devices.filter(d=>d.status===s).length;
+  $('#stats').innerHTML=[['','stat.total',devices.length],['ok','stat.online',n('on')+n('conflict')],['bad','stat.off',n('off')],
+    ['warn','stat.conflict',n('conflict')],['','stat.dyn',devices.filter(d=>!d.reserved&&d.ip).length]]
+    .map(([c,l,v])=>`<div class="stat ${c}"><b>${v}</b><span>${t(l)}</span></div>`).join('');
+  if(lastUpd)$('#ts').textContent=t('updated',{t:lastUpd.toLocaleTimeString(lang==='it'?'it-IT':'en-GB')});
+}
+async function api(m,u,b){const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:b&&JSON.stringify(b)});
+  const j=await r.json();if(!r.ok)throw new Error(j.error);return j}
+async function load(){
+  $('#refresh').classList.add('spin');
+  try{[devices,cats]=await Promise.all([api('GET','/api/devices'),api('GET','/api/categories')]);lastUpd=new Date();render()}
+  finally{$('#refresh').classList.remove('spin')}}
+$('#types').onclick=e=>{
+  if(e.target.closest('[data-cats]'))return $('#cdlg').showModal();
+  if(e.target.closest('[data-rules]'))return loadRules().then(()=>$('#rdlg').showModal());
+  if(e.target.closest('[data-sort]')){sort={k:'type',d:sort.k==='type'?-sort.d:1};return render()}
+  const k=e.target.closest('[data-t]')?.dataset.t;if(!k)return;tf.has(k)?tf.delete(k):tf.add(k);render()};
+$('#scanall').onclick=()=>{const ids=devices.filter(d=>d.ip&&d.status&&d.status!=='off'&&!scanning.has(d.id)).map(d=>d.id);if(ids.length&&confirm(t('scan.confirm',{n:ids.length})))scan(ids)};
+$('#refresh').onclick=load;$('#q').oninput=render;
+document.querySelectorAll('.bar:not(#types) > .chip').forEach(c=>c.onclick=()=>{
+  const f=c.dataset.f,on=c.getAttribute('aria-pressed')!=='true';c.setAttribute('aria-pressed',on);
+  on?filt.add(f):filt.delete(f);
+  if(on&&f==='on'){filt.delete('off');document.querySelector('[data-f=off]').setAttribute('aria-pressed',false)}
+  if(on&&f==='off'){filt.delete('on');document.querySelector('[data-f=on]').setAttribute('aria-pressed',false)}
+  render()});
+
+// device
+let editId=null;const f=$('#form');
+function open(d){fillTypes();editId=d?.id??null;$('#dt').textContent=t(d?'dlg.edit':'dlg.new');$('#err').textContent='';
+  for(const k of['name','ip','mac','vendor','type','notes'])f[k].value=d?d[k]:(k==='type'?cat('iot').key:'');
+  f.reserved.value=d?.reserved??0;$('#sug').hidden=true;$('#dlg').showModal();suggest()}
+$('#add').onclick=()=>open();$('#cancel').onclick=()=>$('#dlg').close();
+$('#rows').onclick=async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.s)scan([+b.dataset.s]);
+  if(b.dataset.e)open(devices.find(d=>d.id==b.dataset.e));
+  if(b.dataset.x){const d=devices.find(d=>d.id==b.dataset.x);
+    if(confirm(t('del.confirm',{n:d.name}))){await api('DELETE','/api/devices/'+d.id);load()}}};
+f.onsubmit=async e=>{e.preventDefault();
+  const b=Object.fromEntries(['name','ip','mac','vendor','type','notes'].map(k=>[k,f[k].value]));b.reserved=+f.reserved.value;
+  try{await api(editId?'PUT':'POST','/api/devices'+(editId?'/'+editId:''),b);$('#dlg').close();load()}
+  catch(x){$('#err').textContent=x.message}};
+
+// suggerimento produttore/categoria: mai applicato da solo
+let sugN=0,sugData=null;
+async function suggest(){
+  const n=++sugN,box=$('#sug');
+  if(!/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(f.mac.value.trim())){box.hidden=true;return}
+  let s;try{s=await api('POST','/api/suggest',{mac:f.mac.value,name:f.name.value,ports:devices.find(d=>d.id===editId)?.ports||''})}catch{return}
+  if(n!==sugN)return;sugData=s;
+  const parts=[];
+  if(s.vendor&&s.vendor!==f.vendor.value)parts.push(t('sug.vendor',{v:`<b>${esc(s.vendor)}</b>`}));
+  if(s.category&&s.category!==f.type.value)parts.push(t('sug.cat',{c:`<b>${esc(catLabel(cat(s.category)))}</b>`,r:esc(s.rule)}));
+  box.innerHTML=parts.length?`${t('sug.prefix')} ${parts.join(', ')} <button type="button" class="btn" id="sugok">${t('sug.apply')}</button>`:s.local?esc(t('sug.local')):'';
+  box.hidden=!box.innerHTML}
+$('#sug').onclick=e=>{if(!e.target.closest('#sugok'))return;
+  if(sugData.vendor)f.vendor.value=sugData.vendor;if(sugData.category)f.type.value=sugData.category;suggest()};
+f.mac.oninput=suggest;f.name.onchange=suggest;f.vendor.onchange=suggest;f.type.onchange=suggest;
+
+// categorie
+const kf=$('#kform');let kKey=null,kIcon='iot',kColor='';
+const kpaint=()=>{$('#kprev').innerHTML=badge({icon:kIcon,color:kColor});
+  $('#kicons').querySelectorAll('.ib').forEach(b=>b.setAttribute('aria-pressed',b.dataset.i===kIcon));$('#kcol').value=kColor||'#3f51b5'};
+$('#kicons').innerHTML=Object.keys(ICONS).map(k=>`<button type="button" class="ib" data-i="${k}" title="${k}">${ico(k)}</button>`).join('');
+$('#kicons').onclick=e=>{const b=e.target.closest('.ib');if(b){kIcon=b.dataset.i;kpaint()}};
+$('#kcol').oninput=e=>{kColor=e.target.value;kpaint()};$('#kreset').onclick=()=>{kColor='';kpaint()};
+function kopen(c){kKey=c?.key??null;$('#kt').textContent=t(c?'cat.edit':'cat.new');kf.label.value=c?catLabel(c):'';
+  kIcon=c?.icon??'iot';kColor=c?.color??'';$('#kerr').textContent='';kpaint();$('#kdlg').showModal()}
+function renderCats(){const n={};devices.forEach(d=>n[d.type]=(n[d.type]||0)+1);
+  $('#clist').innerHTML=cats.map(c=>`<div class="crow">${badge(c)}<span class="cl">${esc(catLabel(c))}</span><small>${n[c.key]||0}</small><button class="icon-btn" data-ce="${esc(c.key)}" title="${t('act.edit')}">${ico('edit')}</button><button class="icon-btn" data-cx="${esc(c.key)}" title="${t('act.del')}">${ico('trash')}</button></div>`).join('')}
+$('#clist').onclick=async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.ce)kopen(cat(b.dataset.ce));
+  if(b.dataset.cx&&confirm(t('cat.del.confirm',{n:catLabel(cat(b.dataset.cx))})))try{await api('DELETE','/api/categories/'+b.dataset.cx);load()}catch(x){alert(x.message)}};
+$('#cnew').onclick=()=>kopen();$('#cclose').onclick=()=>$('#cdlg').close();$('#kcancel').onclick=()=>$('#kdlg').close();
+kf.onsubmit=async e=>{e.preventDefault();
+  try{await api(kKey?'PUT':'POST','/api/categories'+(kKey?'/'+kKey:''),{label:kf.label.value,icon:kIcon,color:kColor});$('#kdlg').close();load()}
+  catch(x){$('#kerr').textContent=x.message}};
+
+// regole di riconoscimento e database OUI
+const fieldOpts=v=>['mac','name','ports','vendor'].map(k=>`<option value="${k}"${k===v?' selected':''}>${t('rf.'+k)}</option>`).join('');
+const catOpts=v=>cats.map(c=>`<option value="${esc(c.key)}"${c.key===v?' selected':''}>${esc(catLabel(c))}</option>`).join('');
+async function loadRules(){
+  const [rules,oui]=await Promise.all([api('GET','/api/rules'),api('GET','/api/oui')]);
+  $('#ouiinfo').textContent=oui.count?t('oui.info',{n:oui.count,s:oui.source,d:oui.updated}):t('oui.empty');
+  $('#rlist').innerHTML=rules.map(r=>`<div class="rrow" data-id="${r.id}"><select data-k="field">${fieldOpts(r.field)}</select><input data-k="pattern" value="${esc(r.pattern)}" maxlength="60"><select data-k="category">${catOpts(r.category)}</select><button class="icon-btn" data-rx title="${t('act.del')}">${ico('trash')}</button></div>`).join('');
+  $('#rnf').innerHTML=fieldOpts('vendor');$('#rnc').innerHTML=catOpts('iot')}
+$('#rlist').onchange=async e=>{const row=e.target.closest('.rrow'),g=k=>row.querySelector(`[data-k=${k}]`).value;
+  try{await api('PUT','/api/rules/'+row.dataset.id,{field:g('field'),pattern:g('pattern'),category:g('category')})}catch(x){alert(x.message);loadRules()}};
+$('#rlist').onclick=async e=>{const b=e.target.closest('[data-rx]');if(!b)return;await api('DELETE','/api/rules/'+b.closest('.rrow').dataset.id);loadRules()};
+$('#radd').onclick=async()=>{try{await api('POST','/api/rules',{field:$('#rnf').value,pattern:$('#rnp').value,category:$('#rnc').value});$('#rnp').value='';loadRules()}catch(x){alert(x.message)}};
+$('#ouiupd').onclick=async()=>{const b=$('#ouiupd');b.disabled=true;b.textContent=t('oui.busy');
+  try{await api('POST','/api/oui/update');await loadRules()}catch(x){alert(x.message)}finally{b.disabled=false;b.textContent=t('oui.update')}};
+$('#rclose').onclick=()=>$('#rdlg').close();
+
+// lingua
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
+  document.querySelectorAll('[data-it]').forEach(e=>e.title=t(e.dataset.it));
+  document.querySelectorAll('[data-ip]').forEach(e=>e.placeholder=t(e.dataset.ip));
+  $('#head').innerHTML=COLS.map(([k,l])=>`<th data-k="${k}">${l?t(l):''}</th>`).join('');
+  $('#langbtn').innerHTML=FLAGS[lang];
+  $('#lmenu').innerHTML=Object.keys(LANGS).map(k=>`<button data-l="${k}" aria-pressed="${k===lang}">${FLAGS[k]}${LANGS[k]}</button>`).join('');
+  $('#xcsv').href='/api/export.csv?lang='+lang;$('#xxlsx').href='/api/export.xlsx?lang='+lang;
+  if($('#dlg').open){const v=f.type.value;fillTypes();f.type.value=v;$('#dt').textContent=t(editId?'dlg.edit':'dlg.new');suggest()}
+  if($('#rdlg').open)loadRules();
+  render()}
+$('#langbtn').onclick=e=>{e.stopPropagation();$('#lmenu').hidden=!$('#lmenu').hidden};
+$('#lmenu').onclick=e=>{const b=e.target.closest('[data-l]');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('lang',lang)}catch{}
+  $('#lmenu').hidden=true;applyLang()};
+document.addEventListener('click',()=>{$('#lmenu').hidden=true});
+applyLang();load();setInterval(load,30000);
+</script>
+</body>
+</html>

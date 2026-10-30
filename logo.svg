@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>LANtern</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#26324f"/>
+      <stop offset="1" stop-color="#0d1426"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#ff9f1c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="64" cy="70" r="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb84d" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffb84d" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <circle cx="64" cy="70" r="56" fill="url(#glow)"/>
+  <!-- luce che si irradia -->
+  <g fill="none" stroke="#ffd27a" stroke-width="4" stroke-linecap="round" opacity=".85">
+    <path d="M20 52a52 52 0 0 0 0 36"/>
+    <path d="M108 52a52 52 0 0 1 0 36"/>
+    <path d="M10 58a62 62 0 0 0 0 24" opacity=".5"/>
+    <path d="M118 58a62 62 0 0 1 0 24" opacity=".5"/>
+  </g>
+  <!-- manico e cappello -->
+  <path d="M53 30a11 11 0 0 1 22 0" fill="none" stroke="#e8edf7" stroke-width="5" stroke-linecap="round"/>
+  <path d="M42 44l8-12h28l8 12z" fill="#e8edf7"/>
+  <!-- vetro -->
+  <path d="M44 44h40c5 9 8 20 8 31s-3 20-8 29H44c-5-9-8-18-8-29 0-11 3-22 8-31z" fill="url(#glass)" stroke="#0d1426" stroke-opacity=".35" stroke-width="3"/>
+  <!-- rete dentro la lanterna -->
+  <g stroke="#0d1426" stroke-width="3.5" stroke-linecap="round">
+    <path d="M64 70L50 58M64 70L78 58M64 70L64 92" />
+  </g>
+  <g fill="#0d1426">
+    <circle cx="64" cy="70" r="7"/>
+    <circle cx="50" cy="58" r="4.5"/>
+    <circle cx="78" cy="58" r="4.5"/>
+    <circle cx="64" cy="92" r="4.5"/>
+  </g>
+  <!-- base -->
+  <rect x="40" y="104" width="48" height="9" rx="4" fill="#e8edf7"/>
+</svg>

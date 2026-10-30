@@ -1,0 +1,5 @@
+devices.db
+*.db
+seed.local.json
+device_lan.md
+__pycache__/

@@ -428,7 +428,7 @@ $('#langbtn').onclick=e=>{e.stopPropagation();$('#lmenu').hidden=!$('#lmenu').hi
 $('#lmenu').onclick=e=>{const b=e.target.closest('[data-l]');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('lang',lang)}catch{}
   $('#lmenu').hidden=true;applyLang()};
 document.addEventListener('click',()=>{$('#lmenu').hidden=true});
-applyLang();load().then(()=>{if(!devices.length)discover(true)});let auto=true;try{auto=localStorage.getItem('auto')!=='0'}catch{}
+applyLang();load().then(()=>{if({{AUTO}}&&!devices.length)discover(true)});let auto=true;try{auto=localStorage.getItem('auto')!=='0'}catch{}
 const setAuto=v=>{auto=v;try{localStorage.setItem('auto',v?'1':'0')}catch{}
   $('#pause').dataset.it=v?'auto.pause':'auto.resume';$('#pause').setAttribute('aria-pressed',!v);
   $('#pause use').setAttribute('href',v?'#i-pause':'#i-play');applyLang()};

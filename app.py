@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """LANtern: LAN inventory and radar (standard library only). Usage: python3 app.py [port]"""
-import csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, zipfile
+import argparse, csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, uuid, zipfile
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 DIR = Path(__file__).parent
-DB = Path(os.environ.get("LANTERN_DB", DIR / "devices.db"))
+DB = Path(os.environ.get("LANTERN_DB", DIR / "devices.db"))  # --db overrides
+WIN = os.name == "nt"
+SUBNETS = []  # --subnet overrides the automatic detection
+AUTO_DISCOVER = True  # --no-discover turns the first-start discovery off
 FIELDS = ("name", "ip", "mac", "vendor", "type", "notes", "reserved")
 MAC_RE = re.compile(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$")
 
@@ -83,16 +86,69 @@ def scan(ip):
     return ",".join(f"{p}/{n}" for p, n in re.findall(r"(\d+)/open/tcp//([^/]*)/", out))
 
 
+def run(cmd, **kw):
+    return subprocess.run(cmd, capture_output=True, text=True, errors="replace", **kw).stdout  # Windows prints in the OEM code page
+
+
+def ping(ip, count=1, wait=1):
+    if WIN:  # Windows ping exits 0 on "destination unreachable" too: look for a real reply
+        return "TTL=" in run(["ping", "-n", str(count), "-w", str(wait * 1000), ip])
+    return subprocess.run(["ping", "-c", str(count), "-W", str(wait), ip], capture_output=True).returncode == 0
+
+
+def parse_neigh(text):
+    """Linux `ip neigh` -> {ip: (mac, state)}."""
+    return {ip: (mac.lower(), st) for ip, mac, st in re.findall(r"^(\S+) dev \S+ lladdr (\S+) (\w+)", text, re.M) if ":" not in ip}
+
+
+def parse_arp(text):
+    """Windows `arp -a` -> {ip: (mac, state)}; broadcast and multicast rows are dropped. State words are localized, so ignored."""
+    rows = re.findall(r"^\s*(\d+\.\d+\.\d+\.\d+)\s+([0-9a-f]{2}(?:-[0-9a-f]{2}){5})\b", text, re.M | re.I)
+    return {ip: (m, "") for ip, m in ((ip, norm_mac(m)) for ip, m in rows) if m != "ff:ff:ff:ff:ff:ff" and not m.startswith("01:00:5e")}
+
+
+def neighbors(ip=None):
+    """OS neighbor (ARP) table, optionally for one IP."""
+    if WIN:
+        return parse_arp(run(["arp", "-a"] + ([ip] if ip else [])))
+    return parse_neigh(run(["ip", "neigh", "show"] + ([ip] if ip else [])))
+
+
+def local_nets():
+    """(subnets to sweep, {mac: ip} of this host). Never more than a /22 per subnet."""
+    def net(i):
+        return ipaddress.ip_network(f"{i.ip}/{max(i.network.prefixlen, 22)}", strict=False)
+    if SUBNETS:
+        return [ipaddress.ip_network(n, strict=False) for n in SUBNETS], {}
+    if WIN or not sys.platform.startswith("linux"):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sk:  # no packet is sent: the OS only picks the outgoing interface
+            sk.connect(("192.0.2.1", 9))
+            ip = sk.getsockname()[0]
+        node = uuid.getnode()  # shortcut: may be another adapter; bit 40 set means "random", then skip it
+        own = {} if node >> 40 & 1 else {":".join(f"{node:012x}"[i:i + 2] for i in range(0, 12, 2)): ip}
+        return [net(ipaddress.ip_interface(f"{ip}/24"))], own
+    nets, own = [], {}
+    for dev, addr in re.findall(r"^\d+:\s+(\S+)\s+inet (\S+)", run(["ip", "-o", "-4", "addr", "show", "scope", "global"], timeout=10), re.M):
+        if re.match(r"(docker|br-|veth|virbr|tun|tap|lo)", dev):  # containers and VPNs are not the LAN
+            continue
+        i = ipaddress.ip_interface(addr)
+        nets.append(net(i))
+        try:  # this host does not show up in its own ARP table
+            own[Path(f"/sys/class/net/{dev}/address").read_text().strip().lower()] = str(i.ip)
+        except OSError:
+            pass
+    return nets, own
+
+
 def probe(d):
-    """'on' | 'off' | 'conflict' (MAC diverso da quello atteso) | None (senza IP)."""
+    """'on' | 'off' | 'conflict' (MAC differs from the expected one) | None (no IP)."""
     if not d["ip"]:
         return None
-    up = subprocess.run(["ping", "-c2", "-W2", d["ip"]], capture_output=True).returncode == 0
-    out = subprocess.run(["ip", "neigh", "show", d["ip"]], capture_output=True, text=True).stdout
-    m = re.search(r"lladdr (\S+) (\w+)", out)
-    if not (up or (m and m.group(2) == "REACHABLE")):
+    up = ping(d["ip"], 2, 2)
+    m = neighbors(d["ip"]).get(d["ip"])
+    if not (up or (m and m[1] == "REACHABLE")):
         return "off"
-    return "conflict" if m and m.group(1).lower() != d["mac"] else "on"
+    return "conflict" if m and m[0] != d["mac"] else "on"
 
 
 def devices_with_status(c):
@@ -205,23 +261,12 @@ def add_new(c, name, ip, mac, vendor="", type="", notes="", reserved=0):
 
 def discover(c):
     """Ping-sweep the local subnets, read the ARP table, add the MACs not in the inventory yet."""
-    out = subprocess.run(["ip", "-o", "-4", "addr", "show", "scope", "global"], capture_output=True, text=True, timeout=10).stdout
-    found, nets = {}, []  # mac -> ip
-    for dev, addr in re.findall(r"^\d+:\s+(\S+)\s+inet (\S+)", out, re.M):
-        if re.match(r"(docker|br-|veth|virbr|tun|tap|lo)", dev):  # containers and VPNs are not the LAN
-            continue
-        i = ipaddress.ip_interface(addr)
-        nets.append(ipaddress.ip_network(f"{i.ip}/{max(i.network.prefixlen, 22)}", strict=False))  # shortcut: never sweep more than a /22
-        try:  # this host does not show up in its own ARP table
-            found[Path(f"/sys/class/net/{dev}/address").read_text().strip().lower()] = str(i.ip)
-        except OSError:
-            pass
-    ping = lambda ip: subprocess.run(["ping", "-c1", "-W1", str(ip)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+    nets, found = local_nets()  # found: mac -> ip
     with ThreadPoolExecutor(64) as ex:
-        list(ex.map(ping, [h for n in nets for h in n.hosts()]))
-    for ip, mac in re.findall(r"^(\S+) dev \S+ lladdr (\S+)", subprocess.run(["ip", "neigh", "show"], capture_output=True, text=True).stdout, re.M):
-        if ":" not in ip and any(ipaddress.ip_address(ip) in n for n in nets):
-            found.setdefault(mac.lower(), ip)
+        list(ex.map(ping, [str(h) for n in nets for h in n.hosts()]))
+    for ip, (mac, _) in neighbors().items():
+        if any(ipaddress.ip_address(ip) in n for n in nets):
+            found.setdefault(mac, ip)
     if not c.execute("SELECT 1 FROM oui").fetchone():  # fresh machine without a system OUI file
         try:
             oui_update(c)
@@ -346,7 +391,7 @@ class H(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         try:
             if method == "GET" and path == "/":
-                return self.send(200, (DIR / "index.html").read_bytes().replace(b"{{VERSION}}", VERSION.encode()), "text/html; charset=utf-8")
+                return self.send(200, (DIR / "index.html").read_bytes().replace(b"{{VERSION}}", VERSION.encode()).replace(b"{{AUTO}}", b"true" if AUTO_DISCOVER else b"false"), "text/html; charset=utf-8")
             if method == "GET" and path == "/logo.svg":
                 return self.send(200, (DIR / "logo.svg").read_bytes(), "image/svg+xml")
             if method == "GET" and path in ("/api/export.csv", "/api/export.xlsx"):
@@ -464,6 +509,21 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8099
-    print(f"LANtern {VERSION}: http://127.0.0.1:{port}")
-    ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
+    ap = argparse.ArgumentParser(prog="lantern", description="LANtern: LAN inventory and radar.")
+    ap.add_argument("port_pos", nargs="?", type=int, metavar="PORT", help="HTTP port (same as --port)")
+    ap.add_argument("-p", "--port", type=int, default=8099, help="HTTP port (default 8099)")
+    ap.add_argument("--host", default="127.0.0.1", help="address to listen on (default 127.0.0.1; there is no login, keep it local)")
+    ap.add_argument("--db", default=os.environ.get("LANTERN_DB", DB), help="SQLite file (default: devices.db next to app.py, or $LANTERN_DB)")
+    ap.add_argument("--subnet", action="append", default=[], metavar="CIDR", help="subnet to sweep, repeatable (default: detected; at most a /22 each)")
+    ap.add_argument("--no-discover", action="store_true", help="do not discover devices on first start")
+    ap.add_argument("--version", action="version", version=f"LANtern {VERSION}")
+    a = ap.parse_args()
+    DB, SUBNETS, AUTO_DISCOVER = Path(a.db), a.subnet, not a.no_discover
+    for n in SUBNETS:
+        if ipaddress.ip_network(n, strict=False).prefixlen < 22:
+            ap.error(f"--subnet {n}: too large, use /22 or smaller")
+    if a.host not in ("127.0.0.1", "localhost", "::1"):
+        print("WARNING: LANtern has no authentication and can scan your network: do not expose it.", file=sys.stderr)
+    port = a.port_pos or a.port
+    print(f"LANtern {VERSION}: http://{a.host}:{port}", flush=True)
+    ThreadingHTTPServer((a.host, port), H).serve_forever()

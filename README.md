@@ -23,20 +23,24 @@ Python standard library only. No login, no cloud, one SQLite file.</p>
 ## Run
 
 ```
-python3 app.py [port]
+python3 app.py [options]
 ```
 
 Open `http://127.0.0.1:8099`. Run it on a machine inside the LAN you want to watch.
 
-Needs Python 3. `nmap` is optional (port scan only). Uses `ping` and `ip neigh`, so Linux. Discovery sweeps the local subnets (at most a /22 each, container and VPN interfaces skipped) and sees only the devices that answer ping or ARP.
+Needs Python 3. `nmap` is optional (port scan only). Linux uses `ping` and `ip`. Windows uses `ping` and `arp`, both built in: use `py app.py`. **Windows support is experimental and untested on real hardware.**
 
 ## Options
 
 | Option | Default | Meaning |
 |---|---|---|
-| `port` (argument) | `8099` | HTTP port |
-| `LANTERN_DB` (env) | `devices.db` next to `app.py` | SQLite file |
-| `seed.local.json` | none | Optional automatic import on first start (same as the Import button, JSON): `[[name, ip, mac, vendor, type, notes, reserved], ...]`, `reserved` = 0 dynamic, 1 reservation, 2 fixed |
+| `-p`, `--port PORT` (or just `PORT`) | `8099` | HTTP port |
+| `--host ADDRESS` | `127.0.0.1` | Listen address. Anything else prints a warning: there is no login |
+| `--db FILE` (or env `LANTERN_DB`) | `devices.db` next to `app.py` | SQLite file |
+| `--subnet CIDR` | detected | Subnet to sweep, repeatable, `/22` at most. Use it when detection picks the wrong network (VPN, several adapters) |
+| `--no-discover` | off | Skip the discovery on first start (the Discover button still works) |
+| `--version` | | Print the version |
+| `seed.local.json` | none | Optional automatic import on first start, JSON: `[[name, ip, mac, vendor, type, notes, reserved], ...]`, `reserved` = 0 dynamic, 1 reservation, 2 fixed |
 
 The database starts empty and fills itself with a discovery on first start. `seed.local.json` is only needed to import data you already have.
 

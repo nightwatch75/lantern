@@ -57,6 +57,23 @@ tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--surface2)}
 .ti.sm{width:1.9em;height:1.9em}.ti.sm svg{width:1.1em;height:1.1em}
 .crow{display:flex;align-items:center;gap:10px;padding:4px 0}.crow .cl{flex:1}.crow small{color:var(--on2)}
 .kprev{display:flex;align-items:center;gap:10px;margin-bottom:12px}.kprev input{width:3em;height:2.4em;padding:0;border:0;background:none}
+.cpal{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.cdot{width:1.7em;height:1.7em;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}.cdot:hover{transform:scale(1.12)}
+.cdot[aria-pressed=true]{border-color:var(--on);box-shadow:inset 0 0 0 2px var(--surface)}
+details.look{margin:6px 0 12px}details.look summary{cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--on2)}details.look[open] summary{margin-bottom:10px}
+dialog.run{width:min(380px,92vw);text-align:center;padding:28px 24px}dialog.run::backdrop{background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
+dialog.run h3{margin:8px 0 4px;font-weight:500;font-size:1.2em}dialog.run p{margin:0 0 6px;color:var(--on2)}.rtime{font-variant-numeric:tabular-nums;color:var(--on2);min-height:1.4em}
+.lant{width:130px;height:130px;overflow:visible}
+.lant .swing{transform-origin:64px 24px;animation:lsw 2.6s ease-in-out infinite alternate}
+.lant .flame{transform-origin:64px 96px;animation:lfl 1.1s ease-in-out infinite alternate}
+.lant .glow{animation:lgl 1.6s ease-in-out infinite alternate}
+.lant .ray{opacity:0;animation:lry 1.8s ease-out infinite}.lant .ray.o{animation-delay:.5s}
+@keyframes lsw{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+@keyframes lfl{from{transform:scale(1,1) skewX(-3deg)}to{transform:scale(.9,1.1) skewX(3deg)}}
+@keyframes lgl{from{opacity:.35;transform:scale(.92)}to{opacity:.8;transform:scale(1.04)}}
+@keyframes lry{0%{opacity:0}30%{opacity:.9}100%{opacity:0}}
+.run.done .lant *{animation:none!important}.run.done .lant .ray{opacity:.5}
+@media (prefers-reduced-motion:reduce){.lant *{animation:none!important}.lant .ray{opacity:.5}}
 .igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(2.8em,1fr));gap:4px;max-height:13em;overflow:auto;margin-bottom:8px}
 .ib{border:1px solid var(--line);background:none;color:var(--on);border-radius:8px;padding:.5em;cursor:pointer;display:grid;place-items:center}.ib[aria-pressed=true]{background:var(--pc);border-color:var(--primary);color:var(--primary)}
 .chip.desc svg{transform:scaleY(-1)}.chip:disabled{opacity:.6;cursor:default}.chip.spin svg{animation:s 1s linear infinite}
@@ -137,6 +154,22 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
 </main>
 <button class="fab" id="add"><svg class="i" viewBox="0 0 24 24"><use href="#i-plus"/></svg><span data-i="add"></span></button>
 
+<dialog id="rundlg" class="run"><svg class="lant" viewBox="0 0 128 128" aria-hidden="true">
+  <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#ff9f1c"/></linearGradient>
+  <radialGradient id="rgl" cx="64" cy="72" r="52" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb84d" stop-opacity=".7"/><stop offset="1" stop-color="#ffb84d" stop-opacity="0"/></radialGradient></defs>
+  <circle class="glow" cx="64" cy="72" r="52" fill="url(#rgl)" style="transform-origin:64px 72px"/>
+  <g fill="none" stroke="#ffb300" stroke-width="4" stroke-linecap="round">
+    <path class="ray" d="M22 54a50 50 0 0 0 0 34"/><path class="ray" d="M106 54a50 50 0 0 1 0 34"/>
+    <path class="ray o" d="M10 58a62 62 0 0 0 0 26"/><path class="ray o" d="M118 58a62 62 0 0 1 0 26"/></g>
+  <g class="swing">
+    <path d="M53 30a11 11 0 0 1 22 0" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".8"/>
+    <path d="M42 44l8-12h28l8 12z" fill="currentColor" opacity=".8"/>
+    <path d="M44 44h40c5 9 8 20 8 31s-3 20-8 29H44c-5-9-8-18-8-29 0-11 3-22 8-31z" fill="url(#rg)"/>
+    <path class="flame" d="M64 60c5 7 11 12 11 19a11 11 0 0 1-22 0c0-5 3-8 5-11 1 3 3 4 4 4 1-4 1-8 2-12z" fill="#fff6d6"/>
+    <rect x="40" y="104" width="48" height="9" rx="4" fill="currentColor" opacity=".8"/></g>
+</svg>
+<h3 id="rtitle"></h3><p id="rsub"></p><div class="rtime" id="rtime"></div>
+<div class="actions" style="justify-content:center"><button type="button" class="btn f" id="rok" hidden data-i="close"></button></div></dialog>
 <dialog id="ldlg"><form method="dialog" id="lform">
   <h2 data-i="login.title"></h2>
   <label><span data-i="login.user"></span><input name="username" autocomplete="username" required maxlength="40"></label>
@@ -160,8 +193,7 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
 <dialog id="kdlg"><form method="dialog" id="kform">
   <h2 id="kt"></h2>
   <label><span data-i="f.name"></span><input name="label" required maxlength="40"></label>
-  <div class="kprev"><span id="kprev"></span><input type="color" id="kcol" data-it="cat.color"><button type="button" class="btn" id="kreset" data-i="cat.reset"></button></div>
-  <div class="igrid" id="kicons"></div>
+  <div id="klook"></div>
   <div id="kerr" style="color:var(--bad);min-height:20px"></div>
   <div class="actions"><button type="button" class="btn" id="kcancel" data-i="cancel"></button><button class="btn f" data-i="save"></button></div>
 </form></dialog>
@@ -182,6 +214,7 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
   <div class="row"><label><span data-i="f.vendor"></span><input name="vendor"></label>
   <label><span data-i="f.type"></span><select name="type" id="type"></select></label></div>
   <div class="sug" id="sug" hidden></div>
+  <details class="look" id="lookbox"><summary><span id="lookprev"></span><span data-i="look.title"></span></summary><div id="dlook"></div></details>
   <label><span data-i="f.notes"></span><textarea name="notes" rows="2"></textarea></label>
   <label><span data-i="f.assign"></span><select name="reserved"><option value="0" data-i="as.opt0"></option><option value="1" data-i="as.opt1"></option><option value="2" data-i="as.opt2"></option></select></label>
   <div id="err"></div>
@@ -229,7 +262,7 @@ it:'<svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="
 en:'<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice"><rect width="60" height="30" fill="#012169"/><path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L60 30M60 0L0 30" stroke="#c8102e" stroke-width="2"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/></svg>'};
 const LANGS={it:'Italiano',en:'English'};
 const L={
-it:{'login.title':'Accesso','login.user':'Utente','login.pass':'Password','login.go':'Accedi','acct.title':'Account e login','acct.new':'Nuova password (almeno 8 caratteri)','acct.cur':'Password attuale','acct.off':'Disattiva login','acct.out':'Esci','acct.on':'Login attivo, utente: {u}','acct.none':'Login non attivo: chiunque raggiunga la pagina può usarla. Imposta utente e password.','acct.saved':'Login salvato','acct.off.confirm':'Disattivare il login?','theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
+it:{'look.title':'Aspetto (icona e colore)','look.reset.dev':'Usa aspetto della categoria','color.custom':'Colore personalizzato','run.title':'Ricerca dei device in corso','run.sub':'Ping alla rete locale e lettura della tabella ARP. Servono alcuni secondi.','run.done':'Ricerca completata','run.fail':'Ricerca non riuscita','login.title':'Accesso','login.user':'Utente','login.pass':'Password','login.go':'Accedi','acct.title':'Account e login','acct.new':'Nuova password (almeno 8 caratteri)','acct.cur':'Password attuale','acct.off':'Disattiva login','acct.out':'Esci','acct.on':'Login attivo, utente: {u}','acct.none':'Login non attivo: chiunque raggiunga la pagina può usarla. Imposta utente e password.','acct.saved':'Login salvato','acct.off.confirm':'Disattivare il login?','theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
@@ -247,7 +280,7 @@ it:{'login.title':'Accesso','login.user':'Utente','login.pass':'Password','login
 'rf.mac':'MAC inizia con','rf.name':'Nome contiene','rf.ports':'Porta aperta','rf.vendor':'Produttore contiene','rules.pattern':'testo','rules.add':'Aggiungi',
 'oui.info':'{n} prefissi - fonte: {s} - aggiornato il {d}','oui.empty':'Database OUI vuoto','oui.update':'Aggiorna da IEEE','oui.busy':'Download in corso...',
 'sug.prefix':'Suggerito:','sug.vendor':'produttore {v}','sug.cat':'categoria {c} (regola {r})','sug.apply':'Applica','sug.local':'MAC locale o privato: il produttore non si può ricavare dal MAC'},
-en:{'login.title':'Sign in','login.user':'User','login.pass':'Password','login.go':'Sign in','acct.title':'Account and login','acct.new':'New password (at least 8 characters)','acct.cur':'Current password','acct.off':'Disable login','acct.out':'Sign out','acct.on':'Login is on, user: {u}','acct.none':'Login is off: anyone who reaches this page can use it. Set a user and a password.','acct.saved':'Login saved','acct.off.confirm':'Disable the login?','theme.cl':'Classic Light','theme.cd':'Classic Dark','auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
+en:{'look.title':'Look (icon and color)','look.reset.dev':'Use the category look','color.custom':'Custom color','run.title':'Searching for devices','run.sub':'Pinging the local network and reading the ARP table. It takes a few seconds.','run.done':'Search complete','run.fail':'Search failed','login.title':'Sign in','login.user':'User','login.pass':'Password','login.go':'Sign in','acct.title':'Account and login','acct.new':'New password (at least 8 characters)','acct.cur':'Current password','acct.off':'Disable login','acct.out':'Sign out','acct.on':'Login is on, user: {u}','acct.none':'Login is off: anyone who reaches this page can use it. Set a user and a password.','acct.saved':'Login saved','acct.off.confirm':'Disable the login?','theme.cl':'Classic Light','theme.cd':'Classic Dark','auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
@@ -278,7 +311,27 @@ const cat=k=>cats.find(c=>c.key===k)||{key:k,label:k,icon:'iot',color:''};
 const catLabel=c=>(L.it['cat.'+c.key]===c.label||L.en['cat.'+c.key]===c.label)?t('cat.'+c.key):c.label;
 document.getElementById('defs').innerHTML=Object.entries(ICONS).map(([k,v])=>`<symbol id="i-${k}" viewBox="0 0 24 24">${v}</symbol>`).join('');
 const fgOn=h=>{const n=parseInt(h.slice(1),16);return .299*(n>>16)+.587*(n>>8&255)+.114*(n&255)>150?'#1b1b21':'#fff'};
-const badge=(c,sm)=>`<span class="ti${sm?' sm':''}"${c.color?` style="background:${esc(c.color)};color:${fgOn(c.color)}"`:''}>${ico(c.icon)}</span>`;
+const COLORS=['#e53935','#d81b60','#8e24aa','#5e35b1','#3949ab','#1e88e5','#039be5','#00acc1','#00897b','#43a047','#7cb342','#c0ca33','#fdd835','#ffb300','#fb8c00','#f4511e','#6d4c41','#757575','#546e7a','#212121'];
+// color of a category that has none of its own: one per default category, so they differ at a glance
+const DEFC={router:'#f4511e',server:'#5e35b1',nas:'#1e88e5',sbc:'#43a047',wifi:'#00acc1',light:'#fdd835',speaker:'#8e24aa',tv:'#3949ab',game:'#d81b60',computer:'#546e7a',phone:'#00897b',tablet:'#7cb342',camera:'#e53935',plug:'#fb8c00',ac:'#039be5',vacuum:'#6d4c41',iot:'#757575'};
+const defColor=k=>DEFC[k]||(k?COLORS[[...k].reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,0)%COLORS.length]:'#3f51b5');
+const badge=(c,sm)=>{const col=c.color||defColor(c.key);return `<span class="ti${sm?' sm':''}" style="background:${esc(col)};color:${fgOn(col)}">${ico(c.icon)}</span>`};
+const devBadge=(d,sm)=>{const c=cat(d.type);return badge({key:c.key,icon:d.icon||c.icon,color:d.color||c.color},sm)};
+// icon + color editor, shared by the category and the device dialogs. Empty value = inherited (fallback)
+function lookEditor(host,{fallback,onpaint,resetBoth}){
+  host.innerHTML=`<div class="kprev"><span class="lp"></span><input type="color" class="lc" title="${t('color.custom')}"><button type="button" class="btn lr"></button></div>
+    <div class="cpal">${COLORS.map(c=>`<button type="button" class="cdot" data-c="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div>
+    <div class="igrid">${Object.keys(ICONS).map(k=>`<button type="button" class="ib" data-ic="${k}" title="${k}">${ico(k)}</button>`).join('')}</div>`;
+  const st={icon:'',color:''},q=s=>host.querySelector(s);
+  const paint=()=>{const fb=fallback(),icon=st.icon||fb.icon,color=st.color||fb.color;
+    q('.lp').innerHTML=badge({icon,color});q('.lc').value=color;q('.lr').textContent=t(resetBoth?'look.reset.dev':'cat.reset');
+    host.querySelectorAll('.ib').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ic===icon));
+    host.querySelectorAll('.cdot').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===color));
+    onpaint&&onpaint(badge({icon,color},1))};
+  host.onclick=e=>{const i=e.target.closest('.ib'),c=e.target.closest('.cdot');
+    if(i)st.icon=i.dataset.ic;else if(c)st.color=c.dataset.c;else if(e.target.closest('.lr')){st.color='';if(resetBoth)st.icon=''}else return;paint()};
+  q('.lc').oninput=e=>{st.color=e.target.value;paint()};
+  return {set(i,c){st.icon=i||'';st.color=c||'';paint()},get:()=>({...st}),paint}}
 const fillTypes=()=>{$('#type').innerHTML=cats.map(c=>`<option value="${esc(c.key)}">${esc(catLabel(c))}</option>`).join('')};
 
 // tema e font
@@ -336,7 +389,7 @@ function render(){
   rows.sort((a,b)=>{const x=val(a,sort.k),y=val(b,sort.k);return (x>y?1:x<y?-1:ipn(a.ip)-ipn(b.ip)||0)*sort.d});
   $('#rows').innerHTML=rows.map(d=>{const[p,l]=PILL[d.status];return `<tr>
     <td><span class="pill ${p}">${t(l)}</span></td>
-    <td><div class="name">${badge(cat(d.type))}${esc(d.name)}</div></td>
+    <td><div class="name">${devBadge(d)}${esc(d.name)}</div></td>
     <td class="mono">${esc(d.ip)||'-'}</td><td class="mono">${esc(d.mac)}</td><td>${esc(d.vendor)}</td>
     <td>${esc(catLabel(cat(d.type)))}</td>
     <td><span class="tag ${['','r','f'][d.reserved]}">${t('as.'+d.reserved)}</span></td>
@@ -366,14 +419,21 @@ $('#types').onclick=e=>{
   if(e.target.closest('[data-rules]'))return loadRules().then(()=>$('#rdlg').showModal());
   if(e.target.closest('[data-sort]')){sort={k:'type',d:sort.k==='type'?-sort.d:1};return render()}
   const k=e.target.closest('[data-t]')?.dataset.t;if(!k)return;tf.has(k)?tf.delete(k):tf.add(k);render()};
-async function discover(auto){
-  const b=$('#discover');b.classList.add('spin');b.disabled=true;
-  try{const r=await api('POST','/api/discover');await load();if(!auto||r.added)alert(t('disc.res',{f:r.found,a:r.added}))}
-  catch(x){alert(x.message)}finally{b.classList.remove('spin');b.disabled=false}}
+let runT=null;
+async function discover(){
+  const b=$('#discover'),d=$('#rundlg'),t0=Date.now();b.classList.add('spin');b.disabled=true;
+  d.classList.remove('done');$('#rtitle').textContent=t('run.title');$('#rsub').textContent=t('run.sub');$('#rok').hidden=true;
+  const tick=()=>{const s=Math.floor((Date.now()-t0)/1000);$('#rtime').textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+  tick();runT=setInterval(tick,1000);d.showModal();
+  try{const r=await api('POST','/api/discover');await load();$('#rtitle').textContent=t('run.done');$('#rsub').textContent=t('disc.res',{f:r.found,a:r.added})}
+  catch(x){$('#rtitle').textContent=t('run.fail');$('#rsub').textContent=x.message}
+  finally{clearInterval(runT);d.classList.add('done');$('#rok').hidden=false;$('#rok').focus();b.classList.remove('spin');b.disabled=false}}
+$('#rundlg').oncancel=e=>{if($('#rok').hidden)e.preventDefault()};  // no Esc while it runs
+$('#rok').onclick=()=>$('#rundlg').close();
 $('#import').onclick=()=>$('#impf').click();
 $('#impf').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
   try{const r=await api('POST','/api/import',{text:await f.text()});await load();alert(t('imp.res',{r:r.read,a:r.added,s:r.skipped}))}catch(x){alert(x.message)}};
-$('#discover').onclick=()=>discover(false);
+$('#discover').onclick=discover;
 $('#scanall').onclick=()=>{const ids=devices.filter(d=>d.ip&&d.status&&d.status!=='off'&&!scanning.has(d.id)).map(d=>d.id);if(ids.length&&confirm(t('scan.confirm',{n:ids.length})))scan(ids)};
 $('#refresh').onclick=load;$('#q').oninput=render;
 $('#stats').onclick=e=>{const k=e.target.closest('[data-s]')?.dataset.s;if(!k)return;
@@ -383,9 +443,11 @@ $('#stats').onclick=e=>{const k=e.target.closest('[data-s]')?.dataset.s;if(!k)re
 
 // device
 let editId=null;const f=$('#form');
+const dl=lookEditor($('#dlook'),{resetBoth:true,fallback:()=>{const c=cat(f.type.value);return {icon:c.icon,color:c.color||defColor(c.key)}},onpaint:b=>$('#lookprev').innerHTML=b});
+f.type.onchange=()=>dl.paint();
 function open(d){fillTypes();editId=d?.id??null;$('#dt').textContent=t(d?'dlg.edit':'dlg.new');$('#err').textContent='';
   for(const k of['name','ip','mac','vendor','type','notes'])f[k].value=d?d[k]:(k==='type'?cat('iot').key:'');
-  f.reserved.value=d?.reserved??0;$('#sug').hidden=true;$('#dlg').showModal();suggest()}
+  f.reserved.value=d?.reserved??0;dl.set(d?.icon,d?.color);$('#lookbox').open=!!(d?.icon||d?.color);$('#sug').hidden=true;$('#dlg').showModal();suggest()}
 $('#add').onclick=()=>open();$('#cancel').onclick=()=>$('#dlg').close();
 $('#rows').onclick=async e=>{
   const b=e.target.closest('button');if(!b)return;
@@ -394,7 +456,7 @@ $('#rows').onclick=async e=>{
   if(b.dataset.x){const d=devices.find(d=>d.id==b.dataset.x);
     if(confirm(t('del.confirm',{n:d.name}))){await api('DELETE','/api/devices/'+d.id);load()}}};
 f.onsubmit=async e=>{e.preventDefault();
-  const b=Object.fromEntries(['name','ip','mac','vendor','type','notes'].map(k=>[k,f[k].value]));b.reserved=+f.reserved.value;
+  const b=Object.fromEntries(['name','ip','mac','vendor','type','notes'].map(k=>[k,f[k].value]));b.reserved=+f.reserved.value;Object.assign(b,dl.get());
   try{await api(editId?'PUT':'POST','/api/devices'+(editId?'/'+editId:''),b);$('#dlg').close();load()}
   catch(x){$('#err').textContent=x.message}};
 
@@ -415,14 +477,10 @@ $('#sug').onclick=e=>{if(!e.target.closest('#sugok'))return;
 f.mac.oninput=suggest;f.name.onchange=suggest;f.vendor.onchange=suggest;f.type.onchange=suggest;
 
 // categorie
-const kf=$('#kform');let kKey=null,kIcon='iot',kColor='';
-const kpaint=()=>{$('#kprev').innerHTML=badge({icon:kIcon,color:kColor});
-  $('#kicons').querySelectorAll('.ib').forEach(b=>b.setAttribute('aria-pressed',b.dataset.i===kIcon));$('#kcol').value=kColor||'#3f51b5'};
-$('#kicons').innerHTML=Object.keys(ICONS).map(k=>`<button type="button" class="ib" data-i="${k}" title="${k}">${ico(k)}</button>`).join('');
-$('#kicons').onclick=e=>{const b=e.target.closest('.ib');if(b){kIcon=b.dataset.i;kpaint()}};
-$('#kcol').oninput=e=>{kColor=e.target.value;kpaint()};$('#kreset').onclick=()=>{kColor='';kpaint()};
+const kf=$('#kform');let kKey=null;
+const kl=lookEditor($('#klook'),{fallback:()=>({icon:'iot',color:defColor(kKey||'')})});
 function kopen(c){kKey=c?.key??null;$('#kt').textContent=t(c?'cat.edit':'cat.new');kf.label.value=c?catLabel(c):'';
-  kIcon=c?.icon??'iot';kColor=c?.color??'';$('#kerr').textContent='';kpaint();$('#kdlg').showModal()}
+  kl.set(c?.icon??'iot',c?.color??'');$('#kerr').textContent='';$('#kdlg').showModal()}
 function renderCats(){const n={};devices.forEach(d=>n[d.type]=(n[d.type]||0)+1);
   $('#clist').innerHTML=cats.map(c=>`<div class="crow">${badge(c)}<span class="cl">${esc(catLabel(c))}</span><small>${n[c.key]||0}</small><button class="icon-btn" data-ce="${esc(c.key)}" title="${t('act.edit')}">${ico('edit')}</button><button class="icon-btn" data-cx="${esc(c.key)}" title="${t('act.del')}">${ico('trash')}</button></div>`).join('')}
 $('#clist').onclick=async e=>{const b=e.target.closest('button');if(!b)return;
@@ -430,7 +488,7 @@ $('#clist').onclick=async e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.cx&&confirm(t('cat.del.confirm',{n:catLabel(cat(b.dataset.cx))})))try{await api('DELETE','/api/categories/'+b.dataset.cx);load()}catch(x){alert(x.message)}};
 $('#cnew').onclick=()=>kopen();$('#cclose').onclick=()=>$('#cdlg').close();$('#kcancel').onclick=()=>$('#kdlg').close();
 kf.onsubmit=async e=>{e.preventDefault();
-  try{await api(kKey?'PUT':'POST','/api/categories'+(kKey?'/'+kKey:''),{label:kf.label.value,icon:kIcon,color:kColor});$('#kdlg').close();load()}
+  try{await api(kKey?'PUT':'POST','/api/categories'+(kKey?'/'+kKey:''),{label:kf.label.value,icon:kl.get().icon,color:kl.get().color});$('#kdlg').close();load()}
   catch(x){$('#kerr').textContent=x.message}};
 
 // regole di riconoscimento e database OUI
@@ -474,7 +532,7 @@ const setAuto=v=>{auto=v;try{localStorage.setItem('auto',v?'1':'0')}catch{}
 $('#pause').onclick=()=>setAuto(!auto);setAuto(auto);
 setInterval(()=>{if(auto&&!$('#ldlg').open)load().catch(()=>{})},30000);
 let sess={login:false,user:null};
-const startApp=()=>load().then(()=>{if({{AUTO}}&&!devices.length)discover(true)}).catch(()=>{});
+const startApp=()=>load().then(()=>{if({{AUTO}}&&!devices.length)discover()}).catch(()=>{});
 function showLogin(){if($('#ldlg').open)return;$('#lerr').textContent='';$('#ldlg').showModal();$('#lform').username.focus()}
 $('#ldlg').oncancel=e=>e.preventDefault();  // no way around the login
 $('#lform').onsubmit=async e=>{e.preventDefault();const f=e.target;

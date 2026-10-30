@@ -8,7 +8,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 DIR = Path(__file__).parent
 DB = Path(os.environ.get("LANTERN_DB", DIR / "lantern.db"))  # --db overrides
 WIN = os.name == "nt"
@@ -19,7 +19,7 @@ SESSIONS = {}  # token -> (username, expires). In memory on purpose: a restart l
 FAILS = {}  # client ip -> (failures, locked until)
 SESSION_TTL, MAX_FAILS, LOCK_SECONDS = 12 * 3600, 5, 60
 PUBLIC = ("/", "/logo.svg", "/api/login", "/api/session")
-FIELDS = ("name", "ip", "mac", "vendor", "type", "notes", "reserved")
+FIELDS = ("name", "ip", "mac", "vendor", "type", "notes", "reserved", "icon", "color")  # icon, color: look of this device, empty = the category one
 MAC_RE = re.compile(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$")
 
 # Optional first-run import: seed.local.json = [[name, ip, mac, vendor, type, notes, reserved], ...]
@@ -71,7 +71,7 @@ def db():
             c.executemany("INSERT OR IGNORE INTO oui VALUES (?,?)", re.findall(r"^([0-9A-F]{6})\s+\(base 16\)\s+(.+?)\s*$", fh.read(), re.M))
         c.execute("INSERT OR REPLACE INTO meta VALUES ('oui_source', 'system database'), ('oui_updated', datetime('now','localtime'))")
     c.commit()
-    for col in ("ports", "scanned_at"):  # migration from versions without port scan
+    for col in ("ports", "scanned_at", "icon", "color"):  # migration from versions without these columns
         if col not in [r[1] for r in c.execute("PRAGMA table_info(devices)")]:
             c.execute(f"ALTER TABLE devices ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
     if not c.execute("SELECT 1 FROM devices").fetchone():
@@ -417,6 +417,11 @@ def clean(data):
         raise ValueError("name and MAC (aa:bb:cc:dd:ee:ff) required")
     if r["ip"]:
         ipaddress.IPv4Address(r["ip"])
+    r["color"] = r["color"].lower()
+    if r["icon"] and not re.fullmatch(r"[a-z0-9_-]{1,32}", r["icon"]):
+        raise ValueError("invalid icon")
+    if r["color"] and not re.fullmatch(r"#[0-9a-f]{6}", r["color"]):
+        raise ValueError("invalid color (#rrggbb)")
     return r
 
 
@@ -577,10 +582,10 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, devices_with_status(c))
             if method == "POST" and not did:
                 r = check_type(c, clean(self.body()))
-                c.execute("INSERT INTO devices (name,ip,mac,vendor,type,notes,reserved) VALUES (:name,:ip,:mac,:vendor,:type,:notes,:reserved)", r)
+                c.execute("INSERT INTO devices (name,ip,mac,vendor,type,notes,reserved,icon,color) VALUES (:name,:ip,:mac,:vendor,:type,:notes,:reserved,:icon,:color)", r)
             elif method == "PUT" and did:
                 r = check_type(c, clean(self.body()))
-                c.execute("UPDATE devices SET name=:name,ip=:ip,mac=:mac,vendor=:vendor,type=:type,notes=:notes,reserved=:reserved WHERE id=:id", {**r, "id": did})
+                c.execute("UPDATE devices SET name=:name,ip=:ip,mac=:mac,vendor=:vendor,type=:type,notes=:notes,reserved=:reserved,icon=:icon,color=:color WHERE id=:id", {**r, "id": did})
             elif method == "DELETE" and did:
                 c.execute("DELETE FROM devices WHERE id=?", (did,))
             else:

@@ -11,12 +11,12 @@ Python standard library only. Optional login, no cloud, one SQLite file.</p>
 
 ## What it does
 
-- First start: LANtern discovers the devices on its own (ping sweep + ARP). The **Discover** button repeats it and adds only the new ones.
+- First start: LANtern discovers the devices on its own (ping sweep + ARP), with a lantern animation while it runs. The **Discover** button repeats it and adds only the new ones.
 - Inventory of every device by MAC: name, IP, vendor, notes, category.
 - Live status: online, offline, or "MAC differs" when an IP answers with another MAC. Auto-refresh every 30 s, with a pause button.
 - IP assignment per device: dynamic, DHCP reservation, or fixed on the device.
 - Port scan, per device or for all online devices. Separate from the refresh.
-- Editable categories (name, icon, icon color) and filters, sort by type.
+- Editable categories (name, icon, icon color), each with its own default color so they differ at a glance. A device can have its own icon and color that win over the category ones. Color picker with a standard palette. Filters, sort by type.
 - Recognition: vendor from the MAC prefix (IEEE OUI database, updatable in one click, registry URLs editable), category from editable rules. LANtern suggests, you confirm.
 - CSV and Excel export. Import from a CSV (LANtern's own export works as a backup) or an nmap XML (`nmap -sn -oX`). Known MACs are never overwritten.
 - 30 themes in one menu: Classic Light and Classic Dark first (the default follows your OS), then Ayu, Catppuccin, Dracula, Nord, Tokyo Night, Kanagawa and more, each with a light variant when it has one. Font size, Italian and English (flag in the top bar).

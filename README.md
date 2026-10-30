@@ -41,7 +41,7 @@ Needs Python 3. `nmap` is optional (port scan only). The OS is detected at start
 |---|---|---|
 | `-p`, `--port PORT` (or just `PORT`) | `8099` | HTTP port |
 | `--host ADDRESS` | `127.0.0.1` | Listen address. Anything else needs a login user first |
-| `--db FILE` (or env `LANTERN_DB`) | `devices.db` next to `app.py` | SQLite file |
+| `--db FILE` (or env `LANTERN_DB`) | `lantern.db` next to `app.py` | SQLite file |
 | `--subnet CIDR` | detected | Subnet to sweep, repeatable, `/22` at most. Use it when detection picks the wrong network (VPN, several adapters) |
 | `--no-discover` | off | Skip the discovery on first start (the Discover button still works) |
 | `--set-password USER` | | Create or replace the login user, then exit |
@@ -50,6 +50,34 @@ Needs Python 3. `nmap` is optional (port scan only). The OS is detected at start
 | `seed.local.json` | none | Optional automatic import on first start, JSON: `[[name, ip, mac, vendor, type, notes, reserved], ...]`, `reserved` = 0 dynamic, 1 reservation, 2 fixed |
 
 The database starts empty and fills itself with a discovery on first start. `seed.local.json` is only needed to import data you already have.
+
+## Docker
+
+Linux only. The container uses the host network, because discovery needs to see the LAN (ARP, ping). With Docker Desktop (Windows, macOS) run LANtern natively instead.
+
+```
+cp .env.example .env     # edit it
+docker compose up -d --build
+docker compose ps        # "healthy" after a few seconds
+docker compose logs lantern
+```
+
+Then open `http://127.0.0.1:8099` (or the host and port you set). On the first start, with an empty database, LANtern discovers the devices by itself.
+
+| Variable (`.env`) | Default | Meaning |
+|---|---|---|
+| `LANTERN_USER`, `LANTERN_PASSWORD` | empty | Both set: the user is created at start, and `.env` wins over the web page. The password needs 8 to 200 characters, or the container stops. Both empty: no login |
+| `LANTERN_HOST` | `127.0.0.1` | Listen address. `0.0.0.0` or a LAN address needs a user, or the container stops |
+| `LANTERN_PORT` | `8099` | HTTP port. With the host network it is used directly: it must be free |
+| `LANTERN_DATA` | `lantern-data` | Database: a Docker volume name, or a host folder (`./lantern_data`, `/srv/lantern`; keep the `./`). Docker creates the folder: do not create it yourself |
+| `LANTERN_SUBNET`, `LANTERN_NO_DISCOVER` | unset | Same as `--subnet` and `--no-discover` |
+| `TZ` | `Europe/Rome` | Time zone of the container |
+
+Update: `git pull && docker compose up -d --build`. The data stays in the volume or folder. Stop: `docker compose down`.
+
+Emptying `LANTERN_USER` does not remove a user already stored in the database. To do that: `docker compose exec lantern python app.py --disable-login`.
+
+The same variables work without Docker: `LANTERN_HOST`, `LANTERN_PORT`, `LANTERN_DB`, `LANTERN_USER`, `LANTERN_PASSWORD`, `LANTERN_SUBNET`, `LANTERN_NO_DISCOVER`.
 
 ## Login
 
@@ -68,6 +96,12 @@ python3 app.py --disable-login        # lost password: remove the user (needs ac
 ## Security
 
 LANtern listens on `127.0.0.1` by default. It can scan your network, so do not expose it to the internet. On loopback it also rejects requests whose `Host` is not `localhost` (DNS rebinding), and cross-site POSTs.
+
+## Tests
+
+```
+for t in tests/test_*.py; do python3 $t; done
+```
 
 ## Credits
 

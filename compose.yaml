@@ -1,0 +1,20 @@
+# LANtern needs to see the LAN (ARP, ping), so the container uses the host network.
+# Linux only: Docker Desktop (Windows, macOS) has no real host network.
+services:
+  lantern:
+    build: .
+    container_name: lantern
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # a named volume by default; LANTERN_DATA=/srv/lantern (or ./data) makes it a host folder
+      - ${LANTERN_DATA:-lantern-data}:/data
+    cap_drop: [ALL]
+    cap_add: [NET_RAW]  # ping
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  lantern-data:

@@ -8,9 +8,9 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.6.0"
+VERSION = "0.7.0"
 DIR = Path(__file__).parent
-DB = Path(os.environ.get("LANTERN_DB", DIR / "devices.db"))  # --db overrides
+DB = Path(os.environ.get("LANTERN_DB", DIR / "lantern.db"))  # --db overrides
 WIN = os.name == "nt"
 SUBNETS = []  # --subnet overrides the automatic detection
 AUTO_DISCOVER = True  # --no-discover turns the first-start discovery off
@@ -603,14 +603,18 @@ class H(BaseHTTPRequestHandler):
         pass
 
 
+def die(msg):  # a one-line reason: argparse would bury it under the whole usage text
+    sys.exit(f"LANtern: error: {msg}")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(prog="lantern", description="LANtern: LAN inventory and radar.")
     ap.add_argument("port_pos", nargs="?", type=int, metavar="PORT", help="HTTP port (same as --port)")
-    ap.add_argument("-p", "--port", type=int, default=8099, help="HTTP port (default 8099)")
-    ap.add_argument("--host", default="127.0.0.1", help="address to listen on (default 127.0.0.1; there is no login, keep it local)")
-    ap.add_argument("--db", default=os.environ.get("LANTERN_DB", DB), help="SQLite file (default: devices.db next to app.py, or $LANTERN_DB)")
-    ap.add_argument("--subnet", action="append", default=[], metavar="CIDR", help="subnet to sweep, repeatable (default: detected; at most a /22 each)")
-    ap.add_argument("--no-discover", action="store_true", help="do not discover devices on first start")
+    ap.add_argument("-p", "--port", type=int, default=int(os.environ.get("LANTERN_PORT", 8099)), help="HTTP port (default 8099, or $LANTERN_PORT)")
+    ap.add_argument("--host", default=os.environ.get("LANTERN_HOST", "127.0.0.1"), help="address to listen on (default 127.0.0.1, or $LANTERN_HOST; anything else needs a login)")
+    ap.add_argument("--db", default=os.environ.get("LANTERN_DB", DB), help="SQLite file (default: lantern.db next to app.py, or $LANTERN_DB)")
+    ap.add_argument("--subnet", action="append", default=[n for n in os.environ.get("LANTERN_SUBNET", "").replace(",", " ").split()], metavar="CIDR", help="subnet to sweep, repeatable (default: detected, or $LANTERN_SUBNET, space or comma separated; at most a /22 each)")
+    ap.add_argument("--no-discover", action="store_true", default=os.environ.get("LANTERN_NO_DISCOVER", "").lower() in ("1", "true", "yes"), help="do not discover devices on first start ($LANTERN_NO_DISCOVER=1)")
     ap.add_argument("--set-password", metavar="USER", help="create or replace the login user (asks for the password), then exit")
     ap.add_argument("--disable-login", action="store_true", help="remove the login user, then exit (lost password)")
     ap.add_argument("--version", action="version", version=f"LANtern {VERSION}")
@@ -620,7 +624,7 @@ if __name__ == "__main__":
     if a.set_password:
         pw = getpass.getpass("Password: ")
         if pw != getpass.getpass("Repeat: "):
-            ap.error("the passwords differ")
+            die("the passwords differ")
         set_user(db(), a.set_password, pw)
         sys.exit(f"Login enabled for {a.set_password}")
     if a.disable_login:
@@ -628,11 +632,19 @@ if __name__ == "__main__":
         c.execute("DELETE FROM users")
         c.commit()
         sys.exit("Login disabled")
+    user, pw = os.environ.get("LANTERN_USER", "").strip(), os.environ.get("LANTERN_PASSWORD", "")
+    if user and pw:  # provisioning for containers: the environment wins over what was set in the UI
+        c = db()
+        if not login_ok(c, user, pw):
+            try:
+                set_user(c, user, pw)
+            except ValueError as e:
+                die(f"$LANTERN_USER / $LANTERN_PASSWORD: {e}")
     if not LOOPBACK and not db().execute("SELECT 1 FROM users").fetchone():
-        ap.error("--host outside this machine needs a login: run with --set-password USER first")
+        die("--host outside this machine needs a login: run with --set-password USER first")
     for n in SUBNETS:
         if ipaddress.ip_network(n, strict=False).prefixlen < 22:
-            ap.error(f"--subnet {n}: too large, use /22 or smaller")
+            die(f"--subnet {n}: too large, use /22 or smaller")
     port = a.port_pos or a.port
     print(f"LANtern {VERSION}: http://{a.host}:{port}", flush=True)
     ThreadingHTTPServer((a.host, port), H).serve_forever()

@@ -1,4 +1,6 @@
-"""Self-check for the OS output parsers: python3 test_net.py"""
+"""Self-check for the OS output parsers: python3 tests/test_net.py"""
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import app
 
 win = """

@@ -1,6 +1,8 @@
-"""Self-check for the importers: python3 test_import.py"""
+"""Self-check for the importers: python3 tests/test_import.py"""
 import os, tempfile
 os.environ["LANTERN_DB"] = os.path.join(tempfile.mkdtemp(), "t.db")
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import app
 
 app.SEED_FILE = app.DIR / "no-seed.json"  # never test against your own seed

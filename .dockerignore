@@ -1,0 +1,9 @@
+.git
+.env
+*.db
+seed.local.json
+device_lan.md
+docs
+tests
+__pycache__
+README.md

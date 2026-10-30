@@ -3,3 +3,6 @@ devices.db
 seed.local.json
 device_lan.md
 __pycache__/
+.env
+lantern_data/
+data/

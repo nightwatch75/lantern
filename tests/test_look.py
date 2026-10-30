@@ -25,4 +25,11 @@ vendor, others = app.family(c, ids["a"])
 assert vendor == "Espressif Inc." and others == [(ids["b"], "b")]
 assert app.family(c, ids["c"]) == ("", []) or app.family(c, ids["c"])[1] == []  # nobody else shares its producer
 assert app.family(c, ids["d"]) == ("", [])  # locally administered
+app.check_look("", "")
+for bad in (("a b", ""), ("", "red")):
+    try:
+        app.check_look(*bad)
+        raise SystemExit(f"expected ValueError for {bad}")
+    except ValueError:
+        pass
 print("ok")

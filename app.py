@@ -421,6 +421,13 @@ def check_type(c, r):
     return r
 
 
+def check_look(icon, color):
+    if icon and not re.fullmatch(r"[a-z0-9_-]{1,32}", icon):
+        raise ValueError("invalid icon")
+    if color and not re.fullmatch(r"#[0-9a-f]{6}", color):
+        raise ValueError("invalid color (#rrggbb)")
+
+
 def clean(data):
     r = {k: str(data.get(k, "")).strip() for k in FIELDS if k != "reserved"}
     r["mac"] = r["mac"].lower()
@@ -432,10 +439,7 @@ def clean(data):
     if r["ip"]:
         ipaddress.IPv4Address(r["ip"])
     r["color"] = r["color"].lower()
-    if r["icon"] and not re.fullmatch(r"[a-z0-9_-]{1,32}", r["icon"]):
-        raise ValueError("invalid icon")
-    if r["color"] and not re.fullmatch(r"#[0-9a-f]{6}", r["color"]):
-        raise ValueError("invalid color (#rrggbb)")
+    check_look(r["icon"], r["color"])
     return r
 
 
@@ -606,8 +610,12 @@ class H(BaseHTTPRequestHandler):
                 r = check_type(c, clean(b))
                 c.execute("UPDATE devices SET name=:name,ip=:ip,mac=:mac,vendor=:vendor,type=:type,notes=:notes,reserved=:reserved,icon=:icon,color=:color WHERE id=:id", {**r, "id": did})
                 if b.get("family"):  # forced: also replaces a look the others already have
+                    # the page sends the look as it shows it (category values filled in), so the others end up looking the same
+                    look = b.get("family_look") or {}
+                    icon, color = str(look.get("icon", r["icon"])).strip(), str(look.get("color", r["color"])).strip().lower()
+                    check_look(icon, color)
                     others = family(c, did)[1]
-                    c.executemany("UPDATE devices SET icon=?, color=? WHERE id=?", [(r["icon"], r["color"], i) for i, _ in others])
+                    c.executemany("UPDATE devices SET icon=?, color=? WHERE id=?", [(icon, color, i) for i, _ in others])
                     c.commit()
                     return self.send(200, {"ok": True, "family": len(others)})
             elif method == "DELETE" and did:

@@ -332,7 +332,7 @@ function lookEditor(host,{fallback,onpaint,resetBoth}){
   host.onclick=e=>{const i=e.target.closest('.ib'),c=e.target.closest('.cdot');
     if(i)st.icon=i.dataset.ic;else if(c)st.color=c.dataset.c;else if(e.target.closest('.lr')){st.color='';if(resetBoth)st.icon=''}else return;paint()};
   q('.lc').oninput=e=>{st.color=e.target.value;paint()};
-  return {set(i,c){st.icon=i||'';st.color=c||'';paint()},get:()=>({...st}),paint}}
+  return {set(i,c){st.icon=i||'';st.color=c||'';paint()},get:()=>({...st}),paint,effective:()=>{const fb=fallback();return {icon:st.icon||fb.icon,color:st.color||fb.color}}}}
 const fillTypes=()=>{$('#type').innerHTML=cats.map(c=>`<option value="${esc(c.key)}">${esc(catLabel(c))}</option>`).join('')};
 
 // tema e font
@@ -460,6 +460,7 @@ $('#rows').onclick=async e=>{
     if(confirm(t('del.confirm',{n:d.name}))){await api('DELETE','/api/devices/'+d.id);load()}}};
 f.onsubmit=async e=>{e.preventDefault();
   const b=Object.fromEntries(['name','ip','mac','vendor','type','notes'].map(k=>[k,f[k].value]));b.reserved=+f.reserved.value;Object.assign(b,dl.get());b.family=$('#fam').checked&&!$('#famrow').hidden;
+  if(b.family&&(b.icon||b.color))b.family_look=dl.effective();  // the others get what you see, not 'inherit'
   try{await api(editId?'PUT':'POST','/api/devices'+(editId?'/'+editId:''),b);$('#dlg').close();load()}
   catch(x){$('#err').textContent=x.message}};
 

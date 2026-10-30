@@ -610,12 +610,9 @@ class H(BaseHTTPRequestHandler):
                 r = check_type(c, clean(b))
                 c.execute("UPDATE devices SET name=:name,ip=:ip,mac=:mac,vendor=:vendor,type=:type,notes=:notes,reserved=:reserved,icon=:icon,color=:color WHERE id=:id", {**r, "id": did})
                 if b.get("family"):  # forced: also replaces a look the others already have
-                    # the page sends the look as it shows it (category values filled in), so the others end up looking the same
-                    look = b.get("family_look") or {}
-                    icon, color = str(look.get("icon", r["icon"])).strip(), str(look.get("color", r["color"])).strip().lower()
-                    check_look(icon, color)
+                    # category too: an empty icon or color means "the category one", so the others must share it
                     others = family(c, did)[1]
-                    c.executemany("UPDATE devices SET icon=?, color=? WHERE id=?", [(icon, color, i) for i, _ in others])
+                    c.executemany("UPDATE devices SET type=?, icon=?, color=? WHERE id=?", [(r["type"], r["icon"], r["color"], i) for i, _ in others])
                     c.commit()
                     return self.send(200, {"ok": True, "family": len(others)})
             elif method == "DELETE" and did:

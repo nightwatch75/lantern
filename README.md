@@ -28,7 +28,11 @@ python3 app.py [options]
 
 Open `http://127.0.0.1:8099`. Run it on a machine inside the LAN you want to watch.
 
-Needs Python 3. `nmap` is optional (port scan only). Linux uses `ping` and `ip`. Windows uses `ping` and `arp`, both built in: use `py app.py`. **Windows support is experimental and untested on real hardware.**
+Needs Python 3. `nmap` is optional (port scan only). The OS is detected at start-up:
+
+- **Linux**: `ping` and `ip` (iproute2).
+- **Windows**: `ping` and `arp`, both built in. Run `py app.py`. **Experimental, untested on real hardware.**
+- Other systems (macOS, BSD): inventory, import and export work, but status and discovery do not.
 
 ## Options
 

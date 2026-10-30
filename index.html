@@ -121,6 +121,7 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
   <button class="icon-btn" id="refresh" data-it="refresh"><svg class="i" viewBox="0 0 24 24"><use href="#i-refresh"/></svg></button>
   <button class="icon-btn fs" id="fsm" data-it="fs.m">A-</button>
   <button class="icon-btn fs" id="fsp" data-it="fs.p">A+</button>
+  <button class="icon-btn" id="acct" data-it="acct.title"><svg class="i" viewBox="0 0 24 24"><use href="#i-user"/></svg></button>
   <div class="lang"><button class="icon-btn" id="theme" data-it="theme"></button><div class="menu themes" id="tmenu" hidden></div></div>
   <div class="lang"><button class="icon-btn" id="langbtn" data-it="lang"></button><div class="menu" id="lmenu" hidden></div></div>
 </header>
@@ -136,6 +137,22 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
 </main>
 <button class="fab" id="add"><svg class="i" viewBox="0 0 24 24"><use href="#i-plus"/></svg><span data-i="add"></span></button>
 
+<dialog id="ldlg"><form method="dialog" id="lform">
+  <h2 data-i="login.title"></h2>
+  <label><span data-i="login.user"></span><input name="username" autocomplete="username" required maxlength="40"></label>
+  <label><span data-i="login.pass"></span><input name="password" type="password" autocomplete="current-password" required maxlength="200"></label>
+  <div id="lerr" style="color:var(--bad);min-height:20px"></div>
+  <div class="actions"><button class="btn f" data-i="login.go"></button></div>
+</form></dialog>
+<dialog id="adlg"><form method="dialog" id="aform">
+  <h2 data-i="acct.title"></h2>
+  <p id="astate" style="color:var(--on2);margin:0 0 8px"></p>
+  <label><span data-i="login.user"></span><input name="username" autocomplete="username" required maxlength="40"></label>
+  <label><span data-i="acct.new"></span><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200"></label>
+  <label id="acurl"><span data-i="acct.cur"></span><input name="current" type="password" autocomplete="current-password" maxlength="200"></label>
+  <div id="aerr" style="min-height:20px;color:var(--bad)"></div>
+  <div class="actions"><button type="button" class="btn" id="aclose" data-i="close"></button><button type="button" class="btn" id="aoff" data-i="acct.off"></button><button type="button" class="btn" id="aout" data-i="acct.out"></button><button class="btn f" data-i="save"></button></div>
+</form></dialog>
 <dialog id="cdlg">
   <h2 data-i="cat.title"></h2><div id="clist"></div>
   <div class="actions"><button type="button" class="btn" id="cnew" data-i="cat.new"></button><button type="button" class="btn f" id="cclose" data-i="close"></button></div>
@@ -194,6 +211,7 @@ lantern:'<path d="M10 3h4M12 3v2"/><rect x="7" y="5" width="10" height="14" rx="
 pause:'<path d="M9 5v14M15 5v14"/>',
 play:'<path d="M8 5l11 7-11 7z"/>',
 refresh:'<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v4h-4"/>',
+user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
 theme:'<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/>',
 search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/>',
 plus:'<path d="M12 5v14M5 12h14"/>',
@@ -211,7 +229,7 @@ it:'<svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="
 en:'<svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice"><rect width="60" height="30" fill="#012169"/><path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L60 30M60 0L0 30" stroke="#c8102e" stroke-width="2"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/></svg>'};
 const LANGS={it:'Italiano',en:'English'};
 const L={
-it:{'theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
+it:{'login.title':'Accesso','login.user':'Utente','login.pass':'Password','login.go':'Accedi','acct.title':'Account e login','acct.new':'Nuova password (almeno 8 caratteri)','acct.cur':'Password attuale','acct.off':'Disattiva login','acct.out':'Esci','acct.on':'Login attivo, utente: {u}','acct.none':'Login non attivo: chiunque raggiunga la pagina può usarla. Imposta utente e password.','acct.saved':'Login salvato','acct.off.confirm':'Disattivare il login?','theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
@@ -229,7 +247,7 @@ it:{'theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti
 'rf.mac':'MAC inizia con','rf.name':'Nome contiene','rf.ports':'Porta aperta','rf.vendor':'Produttore contiene','rules.pattern':'testo','rules.add':'Aggiungi',
 'oui.info':'{n} prefissi - fonte: {s} - aggiornato il {d}','oui.empty':'Database OUI vuoto','oui.update':'Aggiorna da IEEE','oui.busy':'Download in corso...',
 'sug.prefix':'Suggerito:','sug.vendor':'produttore {v}','sug.cat':'categoria {c} (regola {r})','sug.apply':'Applica','sug.local':'MAC locale o privato: il produttore non si può ricavare dal MAC'},
-en:{'theme.cl':'Classic Light','theme.cd':'Classic Dark','auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
+en:{'login.title':'Sign in','login.user':'User','login.pass':'Password','login.go':'Sign in','acct.title':'Account and login','acct.new':'New password (at least 8 characters)','acct.cur':'Current password','acct.off':'Disable login','acct.out':'Sign out','acct.on':'Login is on, user: {u}','acct.none':'Login is off: anyone who reaches this page can use it. Set a user and a password.','acct.saved':'Login saved','acct.off.confirm':'Disable the login?','theme.cl':'Classic Light','theme.cd':'Classic Dark','auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
@@ -338,7 +356,7 @@ function render(){
   if(lastUpd)$('#ts').textContent=t('updated',{t:lastUpd.toLocaleTimeString(lang==='it'?'it-IT':'en-GB')});
 }
 async function api(m,u,b){const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:b&&JSON.stringify(b)});
-  const j=await r.json();if(!r.ok)throw new Error(j.error);return j}
+  const j=await r.json();if(r.status===401&&j.error==='login required')showLogin();if(!r.ok)throw new Error(j.error);return j}
 async function load(){
   $('#refresh').classList.add('spin');
   try{[devices,cats]=await Promise.all([api('GET','/api/devices'),api('GET','/api/categories')]);lastUpd=new Date();render()}
@@ -449,12 +467,30 @@ $('#langbtn').onclick=e=>{e.stopPropagation();$('#tmenu').hidden=true;$('#lmenu'
 $('#lmenu').onclick=e=>{const b=e.target.closest('[data-l]');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('lang',lang)}catch{}
   $('#lmenu').hidden=true;applyLang()};
 document.addEventListener('click',()=>{$('#lmenu').hidden=true;$('#tmenu').hidden=true});
-applyLang();load().then(()=>{if({{AUTO}}&&!devices.length)discover(true)});let auto=true;try{auto=localStorage.getItem('auto')!=='0'}catch{}
+applyLang();let auto=true;try{auto=localStorage.getItem('auto')!=='0'}catch{}
 const setAuto=v=>{auto=v;try{localStorage.setItem('auto',v?'1':'0')}catch{}
   $('#pause').dataset.it=v?'auto.pause':'auto.resume';$('#pause').setAttribute('aria-pressed',!v);
   $('#pause use').setAttribute('href',v?'#i-pause':'#i-play');applyLang()};
 $('#pause').onclick=()=>setAuto(!auto);setAuto(auto);
-setInterval(()=>{if(auto)load()},30000);
+setInterval(()=>{if(auto&&!$('#ldlg').open)load().catch(()=>{})},30000);
+let sess={login:false,user:null};
+const startApp=()=>load().then(()=>{if({{AUTO}}&&!devices.length)discover(true)}).catch(()=>{});
+function showLogin(){if($('#ldlg').open)return;$('#lerr').textContent='';$('#ldlg').showModal();$('#lform').username.focus()}
+$('#ldlg').oncancel=e=>e.preventDefault();  // no way around the login
+$('#lform').onsubmit=async e=>{e.preventDefault();const f=e.target;
+  try{await api('POST','/api/login',{username:f.username.value,password:f.password.value});f.password.value='';$('#ldlg').close();sess=await api('GET','/api/session');startApp()}
+  catch(x){$('#lerr').textContent=x.message}};
+function acctOpen(){$('#aerr').textContent='';const f=$('#aform');f.password.value=f.current.value='';f.username.value=sess.user||'';
+  $('#astate').textContent=sess.login?t('acct.on',{u:sess.user}):t('acct.none');
+  $('#acurl').hidden=!sess.login;f.current.required=sess.login;$('#aoff').hidden=$('#aout').hidden=!sess.login;$('#adlg').showModal()}
+$('#acct').onclick=acctOpen;$('#aclose').onclick=()=>$('#adlg').close();
+$('#aform').onsubmit=async e=>{e.preventDefault();const f=e.target;
+  try{await api('POST','/api/account',{username:f.username.value,password:f.password.value,current:f.current.value});sess=await api('GET','/api/session');$('#adlg').close();alert(t('acct.saved'))}
+  catch(x){$('#aerr').textContent=x.message}};
+$('#aoff').onclick=async()=>{const f=$('#aform');if(!f.current.value)return $('#aerr').textContent=t('acct.cur');if(!confirm(t('acct.off.confirm')))return;
+  try{await api('DELETE','/api/account',{current:f.current.value});sess={login:false,user:null};$('#adlg').close()}catch(x){$('#aerr').textContent=x.message}};
+$('#aout').onclick=async()=>{await api('POST','/api/logout',{});location.reload()};
+api('GET','/api/session').then(s=>{sess=s;if(!s.login||s.user)startApp();else showLogin()}).catch(()=>{});
 </script>
 </body>
 </html>

@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 """LANtern: LAN inventory and radar (standard library only). Usage: python3 app.py [port]"""
-import argparse, csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, uuid, zipfile
+import argparse, getpass, hashlib, hmac, secrets, time, csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, uuid, zipfile
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 from concurrent.futures import ThreadPoolExecutor
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 DIR = Path(__file__).parent
 DB = Path(os.environ.get("LANTERN_DB", DIR / "devices.db"))  # --db overrides
 WIN = os.name == "nt"
 SUBNETS = []  # --subnet overrides the automatic detection
 AUTO_DISCOVER = True  # --no-discover turns the first-start discovery off
+LOOPBACK = True  # set from --host: only then the Host header is checked against DNS rebinding
+SESSIONS = {}  # token -> (username, expires). In memory on purpose: a restart logs everybody out
+FAILS = {}  # client ip -> (failures, locked until)
+SESSION_TTL, MAX_FAILS, LOCK_SECONDS = 12 * 3600, 5, 60
+PUBLIC = ("/", "/logo.svg", "/api/login", "/api/session")
 FIELDS = ("name", "ip", "mac", "vendor", "type", "notes", "reserved")
 MAC_RE = re.compile(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$")
 
@@ -54,6 +60,7 @@ def db():
     if not c.execute("SELECT 1 FROM categories").fetchone():  # first run: default categories
         c.executemany("INSERT INTO categories VALUES (?,?,?,?)", CATS)
         c.commit()
+    c.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, hash TEXT NOT NULL)")
     c.execute("CREATE TABLE IF NOT EXISTS oui (prefix TEXT PRIMARY KEY, vendor TEXT NOT NULL)")
     c.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     c.execute("CREATE TABLE IF NOT EXISTS rules (id INTEGER PRIMARY KEY, field TEXT NOT NULL, pattern TEXT NOT NULL, category TEXT NOT NULL)")
@@ -333,6 +340,46 @@ def import_rows(c, text):
     return {"read": len(rows), "added": added, "skipped": skipped}
 
 
+def hash_pw(pw):
+    salt = os.urandom(16)
+    return f"scrypt$16384$8$1${salt.hex()}${hashlib.scrypt(pw.encode(), salt=salt, n=16384, r=8, p=1).hex()}"
+
+
+def check_pw(stored, pw):
+    try:
+        _, n, r, p, salt, h = stored.split("$")
+        got = hashlib.scrypt(pw.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p), dklen=len(h) // 2)
+    except ValueError:
+        return False
+    return hmac.compare_digest(got.hex(), h)
+
+
+DUMMY_HASH = hash_pw("dummy")  # checked for unknown users too, so the answer time does not reveal them
+
+
+def login_ok(c, username, password):
+    row = c.execute("SELECT hash FROM users WHERE username=?", (username,)).fetchone()
+    return check_pw(row[0] if row else DUMMY_HASH, password) and bool(row)
+
+
+def set_user(c, username, password):
+    """One account: the login is on as soon as a user exists."""
+    if not re.fullmatch(r"[\w.@-]{1,40}", username):
+        raise ValueError("username: 1-40 letters, digits, . _ @ -")
+    if not 8 <= len(password) <= 200:
+        raise ValueError("password: 8 to 200 characters")
+    c.execute("DELETE FROM users")
+    c.execute("INSERT INTO users VALUES (?,?)", (username, hash_pw(password)))
+    c.commit()
+    SESSIONS.clear()  # every old session dies with the old password
+
+
+def new_session(username):
+    token = secrets.token_urlsafe(32)
+    SESSIONS[token] = (username, time.time() + SESSION_TTL)
+    return token
+
+
 def clean_rule(c, data):
     r = {k: str(data.get(k, "")).strip() for k in ("field", "pattern", "category")}
     if r["field"] not in FIELDS_RULE or not r["pattern"] or len(r["pattern"]) > 60:
@@ -374,12 +421,15 @@ def clean(data):
 
 
 class H(BaseHTTPRequestHandler):
-    def send(self, code, body, ctype="application/json", filename=None):
+    def send(self, code, body, ctype="application/json", filename=None, cookie=None):
         b = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         if filename:
             self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if cookie is not None:
+            self.send_header("Set-Cookie", f"lantern_session={cookie}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_TTL if cookie else 0}")
         self.send_header("Content-Length", str(len(b)))
         self.end_headers()
         self.wfile.write(b)
@@ -387,9 +437,54 @@ class H(BaseHTTPRequestHandler):
     def body(self):
         return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
 
+    def user(self):
+        t = SimpleCookie(self.headers.get("Cookie", "")).get("lantern_session")
+        s = SESSIONS.get(t.value) if t else None
+        if s and s[1] > time.time():
+            return s[0]
+        if t:
+            SESSIONS.pop(t.value, None)
+
     def route(self, method):
         path = self.path.split("?")[0]
         try:
+            host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
+            origin = self.headers.get("Origin")
+            if (LOOPBACK and host not in ("localhost", "127.0.0.1", "::1")) or \
+                    (method != "GET" and origin and origin.split("://", 1)[-1] != self.headers.get("Host")):
+                return self.send(403, {"error": "forbidden host or origin"})
+            c = db()
+            has_login = bool(c.execute("SELECT 1 FROM users").fetchone())
+            if has_login and path not in PUBLIC and not self.user():
+                return self.send(401, {"error": "login required"})
+            if method == "GET" and path == "/api/session":
+                return self.send(200, {"login": has_login, "user": self.user()})
+            if method == "POST" and path == "/api/login":
+                ip, (n, until) = self.client_address[0], FAILS.get(self.client_address[0], (0, 0))
+                if until > time.time():
+                    return self.send(429, {"error": "too many attempts, wait a minute"})
+                b = self.body()
+                if login_ok(c, str(b.get("username", "")), str(b.get("password", ""))):
+                    FAILS.pop(ip, None)
+                    return self.send(200, {"ok": True}, cookie=new_session(str(b["username"])))
+                FAILS[ip] = (n + 1, time.time() + LOCK_SECONDS if n + 1 >= MAX_FAILS else 0)
+                return self.send(401, {"error": "wrong username or password"})
+            if method == "POST" and path == "/api/logout":
+                t = SimpleCookie(self.headers.get("Cookie", "")).get("lantern_session")
+                SESSIONS.pop(t.value, None) if t else None
+                return self.send(200, {"ok": True}, cookie="")
+            if path == "/api/account" and method in ("POST", "DELETE"):
+                b = self.body()
+                if has_login and not login_ok(c, self.user(), str(b.get("current", ""))):
+                    return self.send(403, {"error": "current password is wrong"})
+                if method == "DELETE":
+                    c.execute("DELETE FROM users")
+                    c.commit()
+                    SESSIONS.clear()
+                    return self.send(200, {"ok": True}, cookie="")
+                u = str(b.get("username", "")).strip()
+                set_user(c, u, str(b.get("password", "")))
+                return self.send(200, {"ok": True}, cookie=new_session(u))
             if method == "GET" and path == "/":
                 return self.send(200, (DIR / "index.html").read_bytes().replace(b"{{VERSION}}", VERSION.encode()).replace(b"{{AUTO}}", b"true" if AUTO_DISCOVER else b"false"), "text/html; charset=utf-8")
             if method == "GET" and path == "/logo.svg":
@@ -516,14 +611,28 @@ if __name__ == "__main__":
     ap.add_argument("--db", default=os.environ.get("LANTERN_DB", DB), help="SQLite file (default: devices.db next to app.py, or $LANTERN_DB)")
     ap.add_argument("--subnet", action="append", default=[], metavar="CIDR", help="subnet to sweep, repeatable (default: detected; at most a /22 each)")
     ap.add_argument("--no-discover", action="store_true", help="do not discover devices on first start")
+    ap.add_argument("--set-password", metavar="USER", help="create or replace the login user (asks for the password), then exit")
+    ap.add_argument("--disable-login", action="store_true", help="remove the login user, then exit (lost password)")
     ap.add_argument("--version", action="version", version=f"LANtern {VERSION}")
     a = ap.parse_args()
     DB, SUBNETS, AUTO_DISCOVER = Path(a.db), a.subnet, not a.no_discover
+    LOOPBACK = a.host in ("127.0.0.1", "localhost", "::1")
+    if a.set_password:
+        pw = getpass.getpass("Password: ")
+        if pw != getpass.getpass("Repeat: "):
+            ap.error("the passwords differ")
+        set_user(db(), a.set_password, pw)
+        sys.exit(f"Login enabled for {a.set_password}")
+    if a.disable_login:
+        c = db()
+        c.execute("DELETE FROM users")
+        c.commit()
+        sys.exit("Login disabled")
+    if not LOOPBACK and not db().execute("SELECT 1 FROM users").fetchone():
+        ap.error("--host outside this machine needs a login: run with --set-password USER first")
     for n in SUBNETS:
         if ipaddress.ip_network(n, strict=False).prefixlen < 22:
             ap.error(f"--subnet {n}: too large, use /22 or smaller")
-    if a.host not in ("127.0.0.1", "localhost", "::1"):
-        print("WARNING: LANtern has no authentication and can scan your network: do not expose it.", file=sys.stderr)
     port = a.port_pos or a.port
     print(f"LANtern {VERSION}: http://{a.host}:{port}", flush=True)
     ThreadingHTTPServer((a.host, port), H).serve_forever()

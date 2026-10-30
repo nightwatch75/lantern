@@ -1,7 +1,7 @@
 <p align="center"><img src="logo.svg" width="120" alt="LANtern logo"></p>
 <h1 align="center">LANtern</h1>
 <p align="center">The radar for your LAN: a small device inventory with live availability.<br>
-Python standard library only. No login, no cloud, one SQLite file.</p>
+Python standard library only. Optional login, no cloud, one SQLite file.</p>
 
 <p align="center">
   <img src="docs/screenshot-light.png" width="32%" alt="Classic Light">
@@ -40,18 +40,34 @@ Needs Python 3. `nmap` is optional (port scan only). The OS is detected at start
 | Option | Default | Meaning |
 |---|---|---|
 | `-p`, `--port PORT` (or just `PORT`) | `8099` | HTTP port |
-| `--host ADDRESS` | `127.0.0.1` | Listen address. Anything else prints a warning: there is no login |
+| `--host ADDRESS` | `127.0.0.1` | Listen address. Anything else needs a login user first |
 | `--db FILE` (or env `LANTERN_DB`) | `devices.db` next to `app.py` | SQLite file |
 | `--subnet CIDR` | detected | Subnet to sweep, repeatable, `/22` at most. Use it when detection picks the wrong network (VPN, several adapters) |
 | `--no-discover` | off | Skip the discovery on first start (the Discover button still works) |
+| `--set-password USER` | | Create or replace the login user, then exit |
+| `--disable-login` | | Remove the login user, then exit |
 | `--version` | | Print the version |
 | `seed.local.json` | none | Optional automatic import on first start, JSON: `[[name, ip, mac, vendor, type, notes, reserved], ...]`, `reserved` = 0 dynamic, 1 reservation, 2 fixed |
 
 The database starts empty and fills itself with a discovery on first start. `seed.local.json` is only needed to import data you already have.
 
+## Login
+
+Off by default. Turn it on from the account button in the top bar, or from the shell:
+
+```
+python3 app.py --set-password max     # asks for the password, then exits
+python3 app.py --disable-login        # lost password: remove the user (needs access to the db file)
+```
+
+- One user, stored in the `users` table of the database. The password is hashed with scrypt and a random salt, never stored in clear.
+- Session cookie: `HttpOnly`, `SameSite=Strict`, 12 hours, kept in memory (a restart signs everybody out). After 5 wrong passwords the client waits one minute.
+- With `--host` set to anything other than this machine, LANtern refuses to start until a user exists.
+- The cookie has no `Secure` flag because LANtern speaks plain HTTP. To use it across the network, put it behind a reverse proxy with HTTPS.
+
 ## Security
 
-LANtern listens on `127.0.0.1` only and has no authentication. Do not expose it to the internet.
+LANtern listens on `127.0.0.1` by default. It can scan your network, so do not expose it to the internet. On loopback it also rejects requests whose `Host` is not `localhost` (DNS rebinding), and cross-site POSTs.
 
 ## Credits
 

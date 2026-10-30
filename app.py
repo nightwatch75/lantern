@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """LANtern: LAN inventory and radar (standard library only). Usage: python3 app.py [port]"""
-import argparse, getpass, hashlib, hmac, secrets, time, csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, uuid, zipfile
+import argparse, contextlib, getpass, hashlib, hmac, secrets, time, csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, uuid, zipfile
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 from concurrent.futures import ThreadPoolExecutor
@@ -8,7 +8,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 DIR = Path(__file__).parent
 DB = Path(os.environ.get("LANTERN_DB", DIR / "lantern.db"))  # --db overrides
 WIN = os.name == "nt"
@@ -80,17 +80,130 @@ def db():
     return c
 
 
+MAX_PORTS = 1024
 SCAN_PORTS = ("21,22,23,25,53,80,81,110,111,123,135,139,143,161,443,445,515,554,631,993,1080,1883,1900,3000,3306,"
               "3389,5000,5001,5005,5006,5353,5555,5900,6668,7000,8000,8008,8009,8080,8081,8443,8883,8888,9000,9100,"
               "9999,10001,49152,55443,62078")
 
 
-def scan(ip):
-    """Known TCP ports listening, e.g. '22/ssh,80/http'. Needs nmap (connect scan, no root)."""
+def scan_ports(c):
+    row = c.execute("SELECT value FROM meta WHERE key='scan_ports'").fetchone()
+    return row[0] if row else SCAN_PORTS
+
+
+def clean_ports(text):
+    """'22, 80,8000-8100' -> '22,80,8000-8100'. Empty means: back to the known ports."""
+    s = re.sub(r"\s+", "", str(text)).strip(",")
+    n = 0
+    for p in s.split(",") if s else []:
+        m = re.fullmatch(r"(\d{1,5})(?:-(\d{1,5}))?", p)
+        a, b = (int(m[1]), int(m[2] or m[1])) if m else (0, 0)
+        if not 1 <= a <= b <= 65535:
+            raise ValueError(f"invalid port or range: {p!r} (use 22,80,8000-8100)")
+        n += b - a + 1
+    if n > MAX_PORTS:
+        raise ValueError(f"too many ports ({n}), at most {MAX_PORTS}")
+    return s
+
+
+def scan(ip, ports=SCAN_PORTS):
+    """Listening TCP ports among `ports`, e.g. '22/ssh,80/http'. Needs nmap (connect scan, no root)."""
     ipaddress.IPv4Address(ip)
     out = subprocess.run(["nmap", "-Pn", "-sT", "-n", "-T4", "--max-retries", "1", "--host-timeout", "40s",
-                          "-p", SCAN_PORTS, "-oG", "-", ip], capture_output=True, text=True, timeout=60).stdout
+                          "-p", ports, "-oG", "-", ip], capture_output=True, text=True, timeout=60).stdout
     return ",".join(f"{p}/{n}" for p, n in re.findall(r"(\d+)/open/tcp//([^/]*)/", out))
+
+
+# Backups: files next to the database, so a Docker volume keeps them. The login (users table) is never included.
+BK_RE = re.compile(r"lantern-\d{8}-\d{6}(?:-\d+)?\.db")
+BK_TABLES = ("devices", "categories", "rules", "oui", "meta")
+MAX_UPLOAD = 128 * 1024 * 1024
+
+
+def bk_dir():
+    d = DB.parent / "backups"
+    d.mkdir(exist_ok=True)
+    return d
+
+
+def bk_path(name):
+    p = bk_dir() / name
+    if not BK_RE.fullmatch(name) or not p.is_file():
+        raise ValueError("backup not found")
+    return p
+
+
+def bk_note(p, note):
+    n = p.with_suffix(".txt")
+    note = str(note).strip()[:200]
+    n.write_text(note, encoding="utf-8") if note else n.unlink(missing_ok=True)
+
+
+def bk_slot():
+    stamp, i, d = time.strftime("%Y%m%d-%H%M%S"), 0, bk_dir()
+    while (d / f"lantern-{stamp}{f'-{i}' if i else ''}.db").exists():
+        i += 1
+    return d / f"lantern-{stamp}{f'-{i}' if i else ''}.db"
+
+
+def bk_list():
+    return [{"name": p.name, "size": p.stat().st_size, "created": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(p.stat().st_mtime)),
+             "note": p.with_suffix(".txt").read_text(encoding="utf-8") if p.with_suffix(".txt").exists() else ""}
+            for p in sorted(bk_dir().glob("lantern-*.db"), key=lambda p: p.stat().st_mtime, reverse=True) if BK_RE.fullmatch(p.name)]
+
+
+def bk_new(note=""):
+    p = bk_slot()
+    c = db()
+    with contextlib.closing(c), contextlib.closing(sqlite3.connect(p)) as dst:
+        c.backup(dst)  # consistent copy while the app runs
+        dst.execute("DROP TABLE users")
+        dst.commit()
+        dst.execute("VACUUM")
+    bk_note(p, note)
+    return p.name
+
+
+def bk_import(data, note=""):
+    if not data.startswith(b"SQLite format 3\0"):
+        raise ValueError("not a SQLite database")
+    p = bk_slot()
+    p.write_bytes(data)
+    try:
+        with contextlib.closing(sqlite3.connect(p)) as x:
+            tables = {r[0] for r in x.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if not {"devices", "categories"} <= tables or x.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+                raise ValueError("not a LANtern database")
+            x.execute("DROP TABLE IF EXISTS users")  # a foreign file must not carry a login into the history
+            x.commit()
+            x.execute("VACUUM")
+    except (sqlite3.Error, ValueError):
+        p.unlink(missing_ok=True)
+        raise ValueError("not a LANtern database")
+    bk_note(p, note)
+    return p.name
+
+
+def bk_restore(name):
+    """Replace devices, categories, rules, OUI and settings with the backup's. A backup of the current state is taken first."""
+    p = bk_path(name)
+    bk_new(f"automatic, before restoring {name}")
+    c = db()
+    with contextlib.closing(c):
+        c.execute("ATTACH DATABASE ? AS bk", (str(p),))
+        try:
+            for t in BK_TABLES:
+                have = {r[1] for r in c.execute(f"PRAGMA bk.table_info({t})")}  # a backup from an older version may lack columns
+                cols = ",".join(r[1] for r in c.execute(f"PRAGMA main.table_info({t})") if r[1] in have)
+                if cols:
+                    c.execute(f"DELETE FROM main.{t}")
+                    c.execute(f"INSERT INTO main.{t} ({cols}) SELECT {cols} FROM bk.{t}")
+            c.commit()
+        except sqlite3.Error:
+            c.rollback()
+            raise
+        finally:
+            c.execute("DETACH DATABASE bk")
 
 
 def run(cmd, **kw):
@@ -523,17 +636,55 @@ class H(BaseHTTPRequestHandler):
                     ids = [int(i) for i in self.body().get("ids", [])]
                 else:
                     ids = [int(path.split("/")[3])]
+                ports = scan_ports(c)
                 devs = [d for d in c.execute(f"SELECT id, ip FROM devices WHERE ip != '' AND id IN ({','.join('?' * len(ids))})", ids)]
                 if not devs:
                     return self.send(404, {"error": "device has no IP or does not exist"})
                 with ThreadPoolExecutor(8) as ex:  # sqlite: threads read, the main thread writes
-                    found = list(ex.map(lambda d: scan(d["ip"]), devs))
+                    found = list(ex.map(lambda d: scan(d["ip"], ports), devs))
                 res = []
                 for d, ports in zip(devs, found):
                     c.execute("UPDATE devices SET ports=?, scanned_at=datetime('now','localtime') WHERE id=?", (ports, d["id"]))
                     res.append(dict(c.execute("SELECT id, ports, scanned_at FROM devices WHERE id=?", (d["id"],)).fetchone()))
                 c.commit()
                 return self.send(200, res)
+            if path == "/api/ports" and method in ("GET", "PUT"):
+                if method == "PUT":
+                    p = clean_ports(self.body().get("ports", ""))
+                    if p and p != SCAN_PORTS:
+                        c.execute("INSERT OR REPLACE INTO meta VALUES ('scan_ports', ?)", (p,))
+                    else:
+                        c.execute("DELETE FROM meta WHERE key='scan_ports'")
+                    c.commit()
+                cur = scan_ports(c)
+                return self.send(200, {"ports": cur, "default": SCAN_PORTS, "custom": cur != SCAN_PORTS, "max": MAX_PORTS})
+            if path == "/api/backups" and method in ("GET", "POST"):
+                if method == "POST":
+                    bk_new(str(self.body().get("note", "")))
+                return self.send(200, {"dir": str(bk_dir()), "items": bk_list()})
+            if path == "/api/backups/upload" and method == "POST":
+                n = int(self.headers.get("Content-Length", 0))
+                if n > MAX_UPLOAD:
+                    return self.send(413, {"error": "file too large (128 MB at most)"})
+                note = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("note", [""])[0]
+                bk_import(self.rfile.read(n), note)
+                return self.send(200, {"dir": str(bk_dir()), "items": bk_list()})
+            m = re.fullmatch(r"/api/backups/([^/]+?)(?:/(download|restore))?", path)
+            if m:
+                p, act = bk_path(m.group(1)), m.group(2)
+                if method == "GET" and act == "download":
+                    return self.send(200, p.read_bytes(), "application/vnd.sqlite3", p.name)
+                if method == "POST" and act == "restore":
+                    bk_restore(p.name)
+                    return self.send(200, {"ok": True})
+                if method == "PUT" and not act:
+                    bk_note(p, self.body().get("note", ""))
+                    return self.send(200, {"ok": True})
+                if method == "DELETE" and not act:
+                    p.unlink()
+                    p.with_suffix(".txt").unlink(missing_ok=True)
+                    return self.send(200, {"ok": True})
+                return self.send(405, {"error": "method not allowed"})
             if method == "GET" and path == "/api/oui":
                 return self.send(200, oui_info(db()))
             if method == "POST" and path == "/api/oui/update":

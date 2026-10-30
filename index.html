@@ -116,7 +116,13 @@ header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
 .rrow,.radd{display:grid;grid-template-columns:1.2fr 1.4fr 1.2fr auto;gap:6px;margin-bottom:6px;align-items:center}
 .rrow select,.rrow input,.radd select,.radd input{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--on);font:inherit;min-width:0;width:100%}
 #rlist{max-height:40vh;overflow:auto;margin:10px 0}
-#rdlg{width:min(720px,96vw)}
+#rdlg,#bdlg,#pdlg{width:min(720px,96vw)}
+#pl{width:100%;box-sizing:border-box;font-family:ui-monospace,monospace;font-size:.9em;padding:8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--on)}
+.brow{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px;align-items:center;margin-bottom:6px}.brow small{color:var(--on2);display:block}
+.brow input,.bnew input{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--on);font:inherit;min-width:0;width:100%}
+.bnew{display:grid;grid-template-columns:1fr auto;gap:6px;margin:10px 0}
+#blist{max-height:45vh;overflow:auto;margin:10px 0}
+a.icon-btn{display:inline-flex;align-items:center;justify-content:center;color:inherit}
 .oui{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--on2)}.oui span{flex:1}
 .ouiurls{display:grid;gap:4px;font-size:.86em;color:var(--on2);margin-top:12px}.ouiurls textarea{font:inherit;font-family:ui-monospace,monospace;font-size:.9em;padding:8px;border-radius:8px;border:1px solid var(--line,var(--on2));background:transparent;color:var(--on);resize:vertical;width:100%;box-sizing:border-box}
 .icon-btn[aria-pressed=true]{color:var(--primary)}
@@ -138,6 +144,7 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
   <button class="icon-btn" id="refresh" data-it="refresh"><svg class="i" viewBox="0 0 24 24"><use href="#i-refresh"/></svg></button>
   <button class="icon-btn fs" id="fsm" data-it="fs.m">A-</button>
   <button class="icon-btn fs" id="fsp" data-it="fs.p">A+</button>
+  <button class="icon-btn fs" id="fsr" data-it="fs.r">↺</button>
   <button class="icon-btn" id="acct" data-it="acct.title"><svg class="i" viewBox="0 0 24 24"><use href="#i-user"/></svg></button>
   <div class="lang"><button class="icon-btn" id="theme" data-it="theme"></button><div class="menu themes" id="tmenu" hidden></div></div>
   <div class="lang"><button class="icon-btn" id="langbtn" data-it="lang"></button><div class="menu" id="lmenu" hidden></div></div>
@@ -206,6 +213,23 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
   <div class="radd"><select id="rnf"></select><input id="rnp" maxlength="60" data-ip="rules.pattern"><select id="rnc"></select><button type="button" class="btn f" id="radd" data-i="rules.add"></button></div>
   <div class="actions"><button type="button" class="btn f" id="rclose" data-i="close"></button></div>
 </dialog>
+<dialog id="pdlg">
+  <h2 data-i="ports.title"></h2>
+  <p style="color:var(--on2);margin:0 0 8px" data-i="ports.hint"></p>
+  <textarea id="pl" rows="5" spellcheck="false"></textarea>
+  <p id="pinfo" style="color:var(--on2);margin:6px 0 0"></p>
+  <div id="perr" style="color:var(--bad);min-height:20px"></div>
+  <div class="actions"><button type="button" class="btn" id="preset" data-i="ports.reset"></button><button type="button" class="btn" id="pclose" data-i="cancel"></button><button type="button" class="btn f" id="psave" data-i="save"></button></div>
+</dialog>
+<dialog id="bdlg">
+  <h2 data-i="bk.title"></h2>
+  <p style="color:var(--on2);margin:0" data-i="bk.hint"></p><p id="bdir" class="mono" style="color:var(--on2);margin:2px 0 0;word-break:break-all"></p>
+  <div class="bnew"><input id="bnote" maxlength="200" data-ip="bk.note"><button type="button" class="btn f" id="bnew" data-i="bk.new"></button></div>
+  <div id="blist"></div>
+  <div id="berr" style="color:var(--bad);min-height:20px"></div>
+  <input type="file" id="bfile" accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3,application/octet-stream" hidden>
+  <div class="actions"><button type="button" class="btn" id="bimp" data-i="bk.import"></button><button type="button" class="btn f" id="bclose" data-i="close"></button></div>
+</dialog>
 <dialog id="dlg"><form method="dialog" id="form">
   <h2 id="dt"></h2>
   <label><span data-i="f.name"></span><input name="name" required></label>
@@ -257,6 +281,11 @@ tag:'<path d="M3 12V4h8l10 10-8 8z"/><path d="M7.5 8.5h.01"/>',
 rules:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
 upload:'<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>',
 download:'<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+port:'<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11v3M10 11v3M14 11v3M17 11v3"/>',
+restore:'<path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 8v4l3 2"/>',
+sliders:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+archive:'<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/>',
+eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
 trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'};
 const FLAGS={
 it:'<svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/></svg>',
@@ -266,6 +295,8 @@ const L={
 it:{'fam.apply':'Applica categoria, icona e colore anche agli altri device di {v} ({n}); sostituisce il loro aspetto attuale','look.title':'Aspetto (icona e colore)','look.reset.dev':'Usa aspetto della categoria','color.custom':'Colore personalizzato','run.title':'Ricerca dei device in corso','run.sub':'Ping alla rete locale e lettura della tabella ARP. Servono alcuni secondi.','run.done':'Ricerca completata','run.fail':'Ricerca non riuscita','login.title':'Accesso','login.user':'Utente','login.pass':'Password','login.go':'Accedi','acct.title':'Account e login','acct.new':'Nuova password (almeno 8 caratteri)','acct.cur':'Password attuale','acct.off':'Disattiva login','acct.out':'Esci','acct.on':'Login attivo, utente: {u}','acct.none':'Login non attivo: chiunque raggiunga la pagina può usarla. Imposta utente e password.','acct.saved':'Login salvato','acct.off.confirm':'Disattivare il login?','theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note',
+'fs.r':'Ripristina dimensione testo','pv':'Mostra porte','pv.t':'Mostra o nascondi le porte in ascolto (vista compatta)','pv.has':'Porte in ascolto: {p}','ports.btn':'Elenco porte','ports.btn.t':'Porte controllate dalla scansione','ports.title':'Porte controllate dalla scansione','ports.hint':'Porte TCP separate da virgola, intervalli con il trattino (esempio: 22,80,8000-8100). Vale dalla prossima scansione.','ports.reset':'Ripristina porte note','ports.info':'{n} porte (massimo {m}). {k}','ports.custom':'Elenco personalizzato.','ports.known':'Elenco delle porte note.',
+'bk.btn':'Backup','bk.btn.t':'Backup e ripristino del database','bk.title':'Backup e ripristino','bk.hint':'Copia di dispositivi, categorie, regole, OUI e impostazioni. L\'utenza di accesso non è inclusa. Cartella:','bk.note':'Nota per il nuovo backup','bk.new':'Crea backup','bk.import':'Importa file...','bk.empty':'Nessun backup.','bk.dl':'Scarica','bk.restore':'Ripristina','bk.restore.confirm':'Ripristinare il backup del {d}?\nI dati attuali vengono sostituiti. Prima si salva un backup automatico.','bk.del.confirm':'Eliminare il backup del {d}?','bk.saved':'Backup salvato','bk.done':'Backup ripristinato',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
 'col.status':'Stato','col.name':'Nome','col.ip':'IP','col.mac':'MAC','col.vendor':'Produttore','col.type':'Tipo','col.assign':'Assegnazione IP','col.ports':'Porte in ascolto','col.notes':'Note',
 'st.on':'Online','st.off':'Offline','st.conflict':'MAC diverso','st.na':'N/D','as.0':'Dinamico','as.1':'Reservation','as.2':'Fisso',
@@ -284,6 +315,8 @@ it:{'fam.apply':'Applica categoria, icona e colore anche agli altri device di {v
 en:{'fam.apply':'Also apply category, icon and color to the other devices of {v} ({n}); replaces their current look','look.title':'Look (icon and color)','look.reset.dev':'Use the category look','color.custom':'Custom color','run.title':'Searching for devices','run.sub':'Pinging the local network and reading the ARP table. It takes a few seconds.','run.done':'Search complete','run.fail':'Search failed','login.title':'Sign in','login.user':'User','login.pass':'Password','login.go':'Sign in','acct.title':'Account and login','acct.new':'New password (at least 8 characters)','acct.cur':'Current password','acct.off':'Disable login','acct.out':'Sign out','acct.on':'Login is on, user: {u}','acct.none':'Login is off: anyone who reaches this page can use it. Set a user and a password.','acct.saved':'Login saved','acct.off.confirm':'Disable the login?','theme.cl':'Classic Light','theme.cd':'Classic Dark','auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes',
+'fs.r':'Reset text size','pv':'Show ports','pv.t':'Show or hide the listening ports (compact view)','pv.has':'Listening ports: {p}','ports.btn':'Port list','ports.btn.t':'Ports checked by the scan','ports.title':'Ports checked by the scan','ports.hint':'TCP ports separated by commas, ranges with a dash (example: 22,80,8000-8100). It applies from the next scan.','ports.reset':'Restore known ports','ports.info':'{n} ports (at most {m}). {k}','ports.custom':'Custom list.','ports.known':'Known ports list.',
+'bk.btn':'Backup','bk.btn.t':'Database backup and restore','bk.title':'Backup and restore','bk.hint':'A copy of devices, categories, rules, OUI and settings. The login user is not included. Folder:','bk.note':'Note for the new backup','bk.new':'Create backup','bk.import':'Import file...','bk.empty':'No backups.','bk.dl':'Download','bk.restore':'Restore','bk.restore.confirm':'Restore the backup of {d}?\nCurrent data is replaced. An automatic backup is saved first.','bk.del.confirm':'Delete the backup of {d}?','bk.saved':'Backup saved','bk.done':'Backup restored',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
 'col.status':'Status','col.name':'Name','col.ip':'IP','col.mac':'MAC','col.vendor':'Vendor','col.type':'Type','col.assign':'IP assignment','col.ports':'Listening ports','col.notes':'Notes',
 'st.on':'Online','st.off':'Offline','st.conflict':'MAC mismatch','st.na':'N/A','as.0':'Dynamic','as.1':'Reservation','as.2':'Static',
@@ -362,8 +395,8 @@ $('#tmenu').onclick=e=>{const b=e.target.closest('[data-th]');if(!b)return;theme
 matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(!THEMES.some(x=>x.id===theme))applyTheme()});
 applyTheme();
 let fs=14;try{fs=+localStorage.getItem('fs')||14}catch{}
-const setFs=n=>{fs=Math.min(20,Math.max(11,n));root.style.setProperty('--fs',fs+'px');try{localStorage.setItem('fs',fs)}catch{}};
-setFs(fs);$('#fsm').onclick=()=>setFs(fs-1);$('#fsp').onclick=()=>setFs(fs+1);
+const setFs=n=>{fs=Math.min(20,Math.max(11,n));root.style.setProperty('--fs',fs+'px');$('#fsr').disabled=fs===14;try{localStorage.setItem('fs',fs)}catch{}};
+setFs(fs);$('#fsm').onclick=()=>setFs(fs-1);$('#fsp').onclick=()=>setFs(fs+1);$('#fsr').onclick=()=>setFs(14);
 
 let devices=[],sort={k:'ip',d:1},filt=new Set(),tf=new Set(),lastUpd=null;
 const COLS=[['status','col.status'],['name','col.name'],['ip','col.ip'],['mac','col.mac'],['vendor','col.vendor'],['type','col.type'],['reserved','col.assign'],['ports','col.ports'],['notes','col.notes'],['','']];
@@ -373,7 +406,9 @@ const val=(d,k)=>k==='type'?cats.findIndex(c=>c.key===d.type):k==='ip'?ipn(d.ip)
 const PILL={on:['on','st.on'],off:['off','st.off'],conflict:['conflict','st.conflict'],null:['na','st.na']};
 
 const scanning=new Set();
+let showPorts=true;try{showPorts=localStorage.getItem('ports')!=='0'}catch{}
 const portsCell=d=>{
+  if(!showPorts)return d.ports?`<span class="tag" title="${esc(t('pv.has',{p:d.ports.split(',').map(p=>p.replace('/',' ')).join(', ')}))}">${ico('port')}</span>`:`<span class="tag">-</span>`;
   if(!d.scanned_at)return `<span class="tag" title="${t('ports.never')}">-</span>`;
   const p=d.ports?d.ports.split(',').map(p=>{const[n,sv]=p.split('/');return `<span class="tag mono">${esc(n)}${sv?' '+esc(sv):''}</span>`}).join(''):`<span class="tag">${t('ports.none')}</span>`;
   return `<div class="ports" title="${esc(t('ports.scan',{d:d.scanned_at}))}">${p}</div>`};
@@ -400,7 +435,8 @@ function render(){
   const cnt={};devices.forEach(d=>cnt[d.type]=(cnt[d.type]||0)+1);
   $('#types').innerHTML=`<button class="chip ${sort.d<0?'desc':''}" data-sort aria-pressed="${sort.k==='type'}" title="${t('sort.type.t')}">${ico('sort')}${t('sort.type')}</button>`
     +cats.filter(c=>cnt[c.key]).map(c=>`<button class="chip" data-t="${esc(c.key)}" aria-pressed="${tf.has(c.key)}">${badge(c,1)}${esc(catLabel(c))} <small>${cnt[c.key]}</small></button>`).join('')
-    +`<button class="chip" data-cats title="${t('cats.btn.t')}">${ico('tag')}${t('cats.btn')}</button><button class="chip" data-rules title="${t('rules.btn.t')}">${ico('rules')}${t('rules.btn')}</button>`;
+    +`<button class="chip" data-cats title="${t('cats.btn.t')}">${ico('tag')}${t('cats.btn')}</button><button class="chip" data-rules title="${t('rules.btn.t')}">${ico('rules')}${t('rules.btn')}</button>`
+    +`<button class="chip" data-ports title="${t('ports.btn.t')}">${ico('sliders')}${t('ports.btn')}</button><button class="chip" data-bk title="${t('bk.btn.t')}">${ico('archive')}${t('bk.btn')}</button><button class="chip" data-pv aria-pressed="${showPorts}" title="${t('pv.t')}">${ico('eye')}${t('pv')}</button>`;
   renderCats();
   const n=s=>devices.filter(d=>d.status===s).length;
   const dyn=devices.filter(d=>!d.reserved&&d.ip).length;  // key: filter set entry; total clears everything
@@ -417,6 +453,9 @@ async function load(){
   finally{$('#refresh').classList.remove('spin')}}
 $('#types').onclick=e=>{
   if(e.target.closest('[data-cats]'))return $('#cdlg').showModal();
+  if(e.target.closest('[data-pv]')){showPorts=!showPorts;try{localStorage.setItem('ports',showPorts?'1':'0')}catch{}return render()}
+  if(e.target.closest('[data-ports]'))return openPorts();
+  if(e.target.closest('[data-bk]'))return openBackups();
   if(e.target.closest('[data-rules]'))return loadRules().then(()=>$('#rdlg').showModal());
   if(e.target.closest('[data-sort]')){sort={k:'type',d:sort.k==='type'?-sort.d:1};return render()}
   const k=e.target.closest('[data-t]')?.dataset.t;if(!k)return;tf.has(k)?tf.delete(k):tf.add(k);render()};
@@ -510,6 +549,33 @@ $('#radd').onclick=async()=>{try{await api('POST','/api/rules',{field:$('#rnf').
 $('#ouiupd').onclick=async()=>{const b=$('#ouiupd');b.disabled=true;b.textContent=t('oui.busy');
   try{await api('POST','/api/oui/update',{urls:$('#ouiurls').value.split('\n')});await loadRules()}catch(x){alert(x.message)}finally{b.disabled=false;b.textContent=t('oui.update')}};
 $('#rclose').onclick=()=>$('#rdlg').close();
+
+// porte della scansione
+let pdef='';
+const nports=v=>v.split(',').filter(Boolean).reduce((n,p)=>{const[a,b]=p.split('-').map(Number);return n+(b?b-a+1:1)},0);
+async function openPorts(){const r=await api('GET','/api/ports');pdef=r.default;$('#pl').value=r.ports;$('#pl').dataset.max=r.max;$('#perr').textContent='';pinfo(r.custom);$('#pdlg').showModal()}
+const pinfo=custom=>{const v=$('#pl').value.replace(/\s/g,'');$('#pinfo').textContent=t('ports.info',{n:nports(v),m:$('#pl').dataset.max,k:t(custom??v!==pdef?'ports.custom':'ports.known')})};
+$('#pl').oninput=()=>pinfo();
+$('#preset').onclick=()=>{$('#pl').value=pdef;pinfo(false)};
+$('#pclose').onclick=()=>$('#pdlg').close();
+$('#psave').onclick=async()=>{try{await api('PUT','/api/ports',{ports:$('#pl').value});$('#pdlg').close()}catch(x){$('#perr').textContent=x.message}};
+
+// backup e ripristino
+const fmtSize=n=>n>1e6?(n/1e6).toFixed(1)+' MB':Math.max(1,Math.round(n/1e3))+' kB';
+async function loadBackups(){const r=await api('GET','/api/backups');showBackups(r)}
+function showBackups(r){$('#bdir').textContent=r.dir;$('#berr').textContent='';
+  $('#blist').innerHTML=r.items.length?r.items.map(b=>`<div class="brow" data-n="${esc(b.name)}" data-d="${esc(b.created)}"><span>${esc(b.created)}<small>${fmtSize(b.size)}</small></span><input data-note value="${esc(b.note)}" maxlength="200" placeholder="${t('bk.note')}"><a class="icon-btn" href="/api/backups/${esc(b.name)}/download" download title="${t('bk.dl')}">${ico('download')}</a><button class="icon-btn" data-rs title="${t('bk.restore')}">${ico('restore')}</button><button class="icon-btn" data-bx title="${t('act.del')}">${ico('trash')}</button></div>`).join(''):`<p style="color:var(--on2)">${t('bk.empty')}</p>`}
+const openBackups=()=>loadBackups().then(()=>$('#bdlg').showModal());
+const bfail=x=>$('#berr').textContent=x.message;
+$('#bnew').onclick=async()=>{try{showBackups(await api('POST','/api/backups',{note:$('#bnote').value}));$('#bnote').value=''}catch(x){bfail(x)}};
+$('#blist').onchange=async e=>{const r=e.target.closest('.brow');if(!e.target.matches('[data-note]'))return;try{await api('PUT','/api/backups/'+r.dataset.n,{note:e.target.value})}catch(x){bfail(x)}};
+$('#blist').onclick=async e=>{const r=e.target.closest('.brow');if(!r)return;const b=e.target.closest('button');if(!b)return;
+  try{if(b.hasAttribute('data-bx')){if(confirm(t('bk.del.confirm',{d:r.dataset.d})))await api('DELETE','/api/backups/'+r.dataset.n);await loadBackups()}
+    else if(b.hasAttribute('data-rs')&&confirm(t('bk.restore.confirm',{d:r.dataset.d}))){await api('POST',`/api/backups/${r.dataset.n}/restore`);await load();await loadBackups();alert(t('bk.done'))}}catch(x){bfail(x)}};
+$('#bimp').onclick=()=>$('#bfile').click();
+$('#bfile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const r=await fetch('/api/backups/upload?note='+encodeURIComponent($('#bnote').value||f.name),{method:'POST',body:f});const j=await r.json();if(!r.ok)throw new Error(j.error);showBackups(j);$('#bnote').value=''}catch(x){bfail(x)}};
+$('#bclose').onclick=()=>$('#bdlg').close();
 
 // lingua
 function applyLang(){

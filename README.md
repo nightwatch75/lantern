@@ -15,11 +15,12 @@ Python standard library only. Optional login, no cloud, one SQLite file.</p>
 - Inventory of every device by MAC: name, IP, vendor, notes, category.
 - Live status: online, offline, or "MAC differs" when an IP answers with another MAC. Auto-refresh every 30 s, with a pause button.
 - IP assignment per device: dynamic, DHCP reservation, or fixed on the device.
-- Port scan, per device or for all online devices. Separate from the refresh.
+- Port scan, per device or for all online devices. Separate from the refresh. The list of ports to check is editable (ranges allowed, `22,80,8000-8100`), with one click back to the known ports. A compact view replaces the ports with an icon (or `-`).
+- Backups from the web UI: create, add a note, download, import a file, restore. History in a `backups/` folder next to the database (so a Docker volume keeps it). A restore first saves an automatic backup. The login user is never in a backup, and a restore keeps it.
 - Editable categories (name, icon, icon color), each with its own default color so they differ at a glance. A device can have its own icon and color that win over the category ones. A checkbox applies category, icon and color to every device of the same producer (by MAC prefix, e.g. all Espressif). Color picker with a standard palette. Filters, sort by type.
 - Recognition: vendor from the MAC prefix (IEEE OUI database, updatable in one click, registry URLs editable), category from editable rules. LANtern suggests, you confirm.
 - CSV and Excel export. Import from a CSV (LANtern's own export works as a backup) or an nmap XML (`nmap -sn -oX`). Known MACs are never overwritten.
-- 30 themes in one menu: Classic Light and Classic Dark first (the default follows your OS), then Ayu, Catppuccin, Dracula, Nord, Tokyo Night, Kanagawa and more, each with a light variant when it has one. Font size, Italian and English (flag in the top bar).
+- 30 themes in one menu: Classic Light and Classic Dark first (the default follows your OS), then Ayu, Catppuccin, Dracula, Nord, Tokyo Night, Kanagawa and more, each with a light variant when it has one. Font size (with reset), Italian and English (flag in the top bar).
 
 ## Run
 
@@ -73,7 +74,7 @@ Then open `http://127.0.0.1:8099` (or the host and port you set). On the first s
 | `LANTERN_SUBNET`, `LANTERN_NO_DISCOVER` | unset | Same as `--subnet` and `--no-discover` |
 | `TZ` | `Europe/Rome` | Time zone of the container |
 
-Update: `git pull && docker compose up -d --build`. The data stays in the volume or folder. Stop: `docker compose down`.
+Update: `git pull && docker compose up -d --build`. The data and the backups stay in the volume or folder. Stop: `docker compose down`.
 
 Emptying `LANTERN_USER` does not remove a user already stored in the database. To do that: `docker compose exec lantern python app.py --disable-login`.
 

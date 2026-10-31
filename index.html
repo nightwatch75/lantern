@@ -118,7 +118,13 @@ header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
 .rrow,.radd{display:grid;grid-template-columns:1.2fr 1.4fr 1.2fr auto;gap:6px;margin-bottom:6px;align-items:center}
 .rrow select,.rrow input,.radd select,.radd input{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--on);font:inherit;min-width:0;width:100%}
 #rlist{max-height:40vh;overflow:auto;margin:10px 0}
-#rdlg,#bdlg,#pdlg{width:min(720px,96vw)}
+#rdlg,#bdlg,#pdlg,#idlg{width:min(720px,96vw)}
+.model{display:block;color:var(--on2);font-size:.85em;line-height:1.2}.name>span{min-width:0}
+.icon-btn.web{outline:1.5px dashed var(--on2);outline-offset:-5px}.chip.web{border-style:dashed}.noweb .web{display:none}
+.idres{border-top:1px solid var(--line);padding:10px 0}.idres h3{margin:0 0 4px;font-size:1em}.idres .st{color:var(--on2);font-size:.86em;margin:0 0 6px}
+.cand{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;background:var(--surface2);border-radius:10px;padding:8px 10px;margin-bottom:6px}
+.cand small{color:var(--on2);grid-column:1/-1}.cand a{color:var(--primary)}
+.cf{border-radius:999px;padding:1px 8px;font-size:.8em;margin-left:6px}.cf.high{background:var(--okc);color:var(--ok)}.cf.medium{background:var(--warnc);color:var(--warn)}.cf.low{background:var(--surface);color:var(--on2)}
 #pl{width:100%;box-sizing:border-box;font-family:ui-monospace,monospace;font-size:.9em;padding:8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--on)}
 .brow{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px;align-items:center;margin-bottom:6px}.brow small{color:var(--on2);display:block}
 .brow input,.bnew input{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--on);font:inherit;min-width:0;width:100%}
@@ -145,6 +151,7 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
   <div class="hr">
     <button class="chip" id="discover" data-it="disc.t"><svg class="i" viewBox="0 0 24 24"><use href="#i-radar"/></svg><span class="lbl" data-i="disc"></span></button>
     <button class="chip" id="scanall" data-it="scan.all.t"><svg class="i" viewBox="0 0 24 24"><use href="#i-scan"/></svg><span class="lbl" data-i="scan.all"></span></button>
+    <button class="chip web" id="identall" data-it="id.btn.t"><svg class="i" viewBox="0 0 24 24"><use href="#i-globe"/></svg><span class="lbl" data-i="id.btn"></span></button>
     <span id="ts" style="color:var(--on2)"></span>
     <button class="icon-btn" id="pause" data-it="auto.pause"><svg class="i" viewBox="0 0 24 24"><use href="#i-pause"/></svg></button>
     <button class="icon-btn" id="refresh" data-it="refresh"><svg class="i" viewBox="0 0 24 24"><use href="#i-refresh"/></svg></button>
@@ -226,6 +233,17 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
   <div class="radd"><select id="rnf"></select><input id="rnp" maxlength="60" data-ip="rules.pattern"><select id="rnc"></select><button type="button" class="btn f" id="radd" data-i="rules.add"></button></div>
   <div class="actions"><button type="button" class="btn f" id="rclose" data-i="close"></button></div>
 </dialog>
+<dialog id="wdlg">
+  <h2 data-i="id.disc.title"></h2>
+  <p data-i="id.disc.body"></p>
+  <div class="actions"><button type="button" class="btn" id="wno" data-i="cancel"></button><button type="button" class="btn f" id="wyes" data-i="id.disc.ok"></button></div>
+</dialog>
+<dialog id="idlg">
+  <h2 data-i="id.title"></h2>
+  <p style="color:var(--on2);margin:0" data-i="id.hint"></p>
+  <div id="idbody" style="max-height:60vh;overflow:auto"></div>
+  <div class="actions"><button type="button" class="btn f" id="idclose" data-i="close"></button></div>
+</dialog>
 <dialog id="pdlg">
   <h2 data-i="ports.title"></h2>
   <p style="color:var(--on2);margin:0 0 8px" data-i="ports.hint"></p>
@@ -249,7 +267,8 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
   <div class="row"><label>IP<input name="ip" placeholder="192.168.1.x"></label>
   <label>MAC<input name="mac" required placeholder="aa:bb:cc:dd:ee:ff"></label></div>
   <div class="row"><label><span data-i="f.vendor"></span><input name="vendor"></label>
-  <label><span data-i="f.type"></span><select name="type" id="type"></select></label></div>
+  <label><span data-i="f.model"></span><input name="model" maxlength="80"></label></div>
+  <label><span data-i="f.type"></span><select name="type" id="type"></select></label>
   <div class="sug" id="sug" hidden></div>
   <details class="look" id="lookbox"><summary><span id="lookprev"></span><span data-i="look.title"></span></summary><div id="dlook"></div>
     <label class="fam" id="famrow" hidden><input type="checkbox" id="fam"><span id="famtxt"></span></label></details>
@@ -284,6 +303,7 @@ play:'<path d="M8 5l11 7-11 7z"/>',
 refresh:'<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v4h-4"/>',
 user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
 theme:'<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/>',
+globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>',
 x:'<path d="M6 6l12 12M18 6L6 18"/>',
 search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/>',
 plus:'<path d="M12 5v14M5 12h14"/>',
@@ -310,7 +330,7 @@ const L={
 it:{'fam.apply':'Applica categoria, icona e colore anche agli altri device di {v} ({n}); sostituisce il loro aspetto attuale','look.title':'Aspetto (icona e colore)','look.reset.dev':'Usa aspetto della categoria','color.custom':'Colore personalizzato','run.title':'Ricerca dei device in corso','run.sub':'Ping alla rete locale e lettura della tabella ARP. Servono alcuni secondi.','run.done':'Ricerca completata','run.fail':'Ricerca non riuscita','login.title':'Accesso','login.user':'Utente','login.pass':'Password','login.go':'Accedi','acct.title':'Account e login','acct.new':'Nuova password (almeno 8 caratteri)','acct.cur':'Password attuale','acct.off':'Disattiva login','acct.out':'Esci','acct.on':'Login attivo, utente: {u}','acct.none':'Login non attivo: chiunque raggiunga la pagina può usarla. Imposta utente e password.','acct.saved':'Login salvato','acct.off.confirm':'Disattivare il login?','theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note',
-'fs.r':'Ripristina dimensione testo','search.clear':'Cancella il testo','search.go':'Cerca','um.title':'Menu utente','um.imp':'Importa device (CSV, nmap)','um.acct':'Accesso e password','pv':'Mostra porte','pv.t':'Mostra o nascondi le porte in ascolto (vista compatta)','pv.has':'Porte in ascolto: {p}','ports.btn':'Elenco porte','ports.btn.t':'Porte controllate dalla scansione','ports.title':'Porte controllate dalla scansione','ports.hint':'Porte TCP separate da virgola, intervalli con il trattino (esempio: 22,80,8000-8100). Vale dalla prossima scansione.','ports.reset':'Ripristina porte note','ports.info':'{n} porte (massimo {m}). {k}','ports.custom':'Elenco personalizzato.','ports.known':'Elenco delle porte note.',
+'f.model':'Modello','id.all.confirm':'Identificare {n} device senza modello? Per ognuno si cerca in rete.','id.btn':'Identifica','id.btn.t':'Cerca in rete: identifica i device senza modello. Invia nome host e codice modello a un motore di ricerca','id.one.t':'Identifica (cerca in rete): invia nome host e codice modello a un motore di ricerca','id.run.title':'Identificazione in corso','id.run.sub':'Raccolta delle prove in LAN, punteggio e ricerca in rete. Servono alcuni secondi.','id.title':'Identificazione','id.hint':'Sono suggerimenti, non certezze. Controlla le prove e i link prima di applicare.','id.conf.high':'confidenza alta','id.conf.medium':'confidenza media','id.conf.low':'confidenza bassa','id.apply':'Applica','id.applied':'Applicato','id.nomodel':'Modello non ricavato','id.none':'Nessun candidato: servono più prove (nome host, mDNS, porte).','id.web.nodata':'Ricerca in rete non fatta: nessun codice modello da cercare.','id.web.off':'Ricerca in rete spenta.','id.web.fail':'Ricerca in rete non disponibile:','id.disc.title':'Ricerca in rete','id.disc.body':'Identifica manda fuori dalla LAN, a un motore di ricerca, il produttore e il codice modello (o il nome host) dei device. Non manda mai il MAC né l\'IP. Il risultato è un\'ipotesi con una confidenza: controllala prima di applicarla. I motori di ricerca possono rifiutare le richieste automatiche.','id.disc.ok':'Ho capito, cerca','fs.r':'Ripristina dimensione testo','search.clear':'Cancella il testo','search.go':'Cerca','um.title':'Menu utente','um.imp':'Importa device (CSV, nmap)','um.acct':'Accesso e password','pv':'Mostra porte','pv.t':'Mostra o nascondi le porte in ascolto (vista compatta)','pv.has':'Porte in ascolto: {p}','ports.btn':'Elenco porte','ports.btn.t':'Porte controllate dalla scansione','ports.title':'Porte controllate dalla scansione','ports.hint':'Porte TCP separate da virgola, intervalli con il trattino (esempio: 22,80,8000-8100). Vale dalla prossima scansione.','ports.reset':'Ripristina porte note','ports.info':'{n} porte (massimo {m}). {k}','ports.custom':'Elenco personalizzato.','ports.known':'Elenco delle porte note.',
 'bk.btn':'Backup','bk.btn.t':'Backup e ripristino del database','bk.title':'Backup e ripristino','bk.hint':'Copia di dispositivi, categorie, regole, OUI e impostazioni. L\'utenza di accesso non è inclusa. Cartella:','bk.note':'Nota per il nuovo backup','bk.new':'Crea backup','bk.import':'Importa file...','bk.empty':'Nessun backup.','bk.dl':'Scarica','bk.restore':'Ripristina','bk.restore.confirm':'Ripristinare il backup del {d}?\nI dati attuali vengono sostituiti. Prima si salva un backup automatico.','bk.del.confirm':'Eliminare il backup del {d}?','bk.saved':'Backup salvato','bk.done':'Backup ripristinato',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
 'col.status':'Stato','col.name':'Nome','col.ip':'IP','col.mac':'MAC','col.vendor':'Produttore','col.type':'Tipo','col.assign':'Assegnazione IP','col.ports':'Porte in ascolto','col.notes':'Note',
@@ -330,7 +350,7 @@ it:{'fam.apply':'Applica categoria, icona e colore anche agli altri device di {v
 en:{'fam.apply':'Also apply category, icon and color to the other devices of {v} ({n}); replaces their current look','look.title':'Look (icon and color)','look.reset.dev':'Use the category look','color.custom':'Custom color','run.title':'Searching for devices','run.sub':'Pinging the local network and reading the ARP table. It takes a few seconds.','run.done':'Search complete','run.fail':'Search failed','login.title':'Sign in','login.user':'User','login.pass':'Password','login.go':'Sign in','acct.title':'Account and login','acct.new':'New password (at least 8 characters)','acct.cur':'Current password','acct.off':'Disable login','acct.out':'Sign out','acct.on':'Login is on, user: {u}','acct.none':'Login is off: anyone who reaches this page can use it. Set a user and a password.','acct.saved':'Login saved','acct.off.confirm':'Disable the login?','theme.cl':'Classic Light','theme.cd':'Classic Dark','auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes',
-'fs.r':'Reset text size','search.clear':'Clear the text','search.go':'Search','um.title':'User menu','um.imp':'Import devices (CSV, nmap)','um.acct':'Login and password','pv':'Show ports','pv.t':'Show or hide the listening ports (compact view)','pv.has':'Listening ports: {p}','ports.btn':'Port list','ports.btn.t':'Ports checked by the scan','ports.title':'Ports checked by the scan','ports.hint':'TCP ports separated by commas, ranges with a dash (example: 22,80,8000-8100). It applies from the next scan.','ports.reset':'Restore known ports','ports.info':'{n} ports (at most {m}). {k}','ports.custom':'Custom list.','ports.known':'Known ports list.',
+'f.model':'Model','id.all.confirm':'Identify {n} devices without a model? Each one is searched on the web.','id.btn':'Identify','id.btn.t':'Search the web: identify devices without a model. Sends host name and model code to a search engine','id.one.t':'Identify (web search): sends host name and model code to a search engine','id.run.title':'Identifying','id.run.sub':'Collecting evidence on the LAN, scoring and searching the web. It takes a few seconds.','id.title':'Identification','id.hint':'These are suggestions, not facts. Check the evidence and the links before applying.','id.conf.high':'high confidence','id.conf.medium':'medium confidence','id.conf.low':'low confidence','id.apply':'Apply','id.applied':'Applied','id.nomodel':'Model not found','id.none':'No candidate: more evidence is needed (host name, mDNS, ports).','id.web.nodata':'Web search skipped: no model code to search.','id.web.off':'Web search is off.','id.web.fail':'Web search unavailable:','id.disc.title':'Web search','id.disc.body':'Identify sends the vendor and the model code (or host name) of the devices to a search engine outside your LAN. It never sends the MAC or the IP. The result is a guess with a confidence level: check it before applying. Search engines may refuse automated requests.','id.disc.ok':'I understand, search','fs.r':'Reset text size','search.clear':'Clear the text','search.go':'Search','um.title':'User menu','um.imp':'Import devices (CSV, nmap)','um.acct':'Login and password','pv':'Show ports','pv.t':'Show or hide the listening ports (compact view)','pv.has':'Listening ports: {p}','ports.btn':'Port list','ports.btn.t':'Ports checked by the scan','ports.title':'Ports checked by the scan','ports.hint':'TCP ports separated by commas, ranges with a dash (example: 22,80,8000-8100). It applies from the next scan.','ports.reset':'Restore known ports','ports.info':'{n} ports (at most {m}). {k}','ports.custom':'Custom list.','ports.known':'Known ports list.',
 'bk.btn':'Backup','bk.btn.t':'Database backup and restore','bk.title':'Backup and restore','bk.hint':'A copy of devices, categories, rules, OUI and settings. The login user is not included. Folder:','bk.note':'Note for the new backup','bk.new':'Create backup','bk.import':'Import file...','bk.empty':'No backups.','bk.dl':'Download','bk.restore':'Restore','bk.restore.confirm':'Restore the backup of {d}?\nCurrent data is replaced. An automatic backup is saved first.','bk.del.confirm':'Delete the backup of {d}?','bk.saved':'Backup saved','bk.done':'Backup restored',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
 'col.status':'Status','col.name':'Name','col.ip':'IP','col.mac':'MAC','col.vendor':'Vendor','col.type':'Type','col.assign':'IP assignment','col.ports':'Listening ports','col.notes':'Notes',
@@ -420,7 +440,7 @@ const ipn=ip=>ip?ip.split('.').reduce((a,b)=>a*256+ +b,0):Infinity;
 const val=(d,k)=>k==='type'?cats.findIndex(c=>c.key===d.type):k==='ip'?ipn(d.ip):k==='status'?({on:0,conflict:1,off:2}[d.status]??3):d[k];
 const PILL={on:['on','st.on'],off:['off','st.off'],conflict:['conflict','st.conflict'],null:['na','st.na']};
 
-const scanning=new Set();
+const scanning=new Set(),identifying=new Set();
 let showPorts=true;try{showPorts=localStorage.getItem('ports')!=='0'}catch{}
 const portsCell=d=>{
   if(!showPorts)return d.ports?`<span class="tag" title="${esc(t('pv.has',{p:d.ports.split(',').map(p=>p.replace('/',' ')).join(', ')}))}">${ico('port')}</span>`:`<span class="tag">-</span>`;
@@ -435,18 +455,18 @@ async function scan(ids){
   finally{ids.forEach(i=>scanning.delete(i));$('#scanall').classList.toggle('spin',scanning.size>0);render()}}
 function render(){
   const q=$('#q').value.toLowerCase();
-  let rows=devices.filter(d=>(!q||[d.name,d.ip,d.mac,d.vendor,d.notes].join(' ').toLowerCase().includes(q))
+  let rows=devices.filter(d=>(!q||[d.name,d.ip,d.mac,d.vendor,d.model,d.notes].join(' ').toLowerCase().includes(q))
     &&(!filt.has('on')||d.status==='on'||d.status==='conflict')&&(!filt.has('off')||d.status==='off')&&(!filt.has('conflict')||d.status==='conflict')&&(!filt.has('nores')||(!d.reserved&&d.ip))&&(!tf.size||tf.has(d.type)));
   rows.sort((a,b)=>{const x=val(a,sort.k),y=val(b,sort.k);return (x>y?1:x<y?-1:ipn(a.ip)-ipn(b.ip)||0)*sort.d});
   $('#rows').innerHTML=rows.map(d=>{const[p,l]=PILL[d.status];return `<tr>
     <td><span class="pill ${p}">${t(l)}</span></td>
-    <td><div class="name">${devBadge(d)}${esc(d.name)}</div></td>
+    <td><div class="name">${devBadge(d)}<span>${esc(d.name)}${d.model?`<small class="model">${esc(d.model)}</small>`:''}</span></div></td>
     <td class="mono">${esc(d.ip)||'-'}</td><td class="mono">${esc(d.mac)}</td><td>${esc(d.vendor)}</td>
     <td>${esc(catLabel(cat(d.type)))}</td>
     <td><span class="tag ${['','r','f'][d.reserved]}">${t('as.'+d.reserved)}</span></td>
     <td>${portsCell(d)}</td>
     <td class="notes">${esc(d.notes)}</td>
-    <td style="white-space:nowrap"><button class="icon-btn ${scanning.has(d.id)?'spin':''}" data-s="${d.id}" title="${t('scan.one')}" ${d.ip&&!scanning.has(d.id)?'':'disabled'}>${ico('scan')}</button><button class="icon-btn" data-e="${d.id}" title="${t('act.edit')}">${ico('edit')}</button><button class="icon-btn" data-x="${d.id}" title="${t('act.del')}">${ico('trash')}</button></td></tr>`}).join('');
+    <td style="white-space:nowrap"><button class="icon-btn ${scanning.has(d.id)?'spin':''}" data-s="${d.id}" title="${t('scan.one')}" ${d.ip&&!scanning.has(d.id)?'':'disabled'}>${ico('scan')}</button><button class="icon-btn web ${identifying.has(d.id)?'spin':''}" data-g="${d.id}" title="${t('id.one.t')}" ${d.ip&&!identifying.has(d.id)?'':'disabled'}>${ico('globe')}</button><button class="icon-btn" data-e="${d.id}" title="${t('act.edit')}">${ico('edit')}</button><button class="icon-btn" data-x="${d.id}" title="${t('act.del')}">${ico('trash')}</button></td></tr>`}).join('');
   const cnt={};devices.forEach(d=>cnt[d.type]=(cnt[d.type]||0)+1);
   $('#types').innerHTML=`<button class="chip ${sort.d<0?'desc':''}" data-sort aria-pressed="${sort.k==='type'}" title="${t('sort.type.t')}">${ico('sort')}${t('sort.type')}</button>`
     +cats.filter(c=>cnt[c.key]).map(c=>`<button class="chip" data-t="${esc(c.key)}" aria-pressed="${tf.has(c.key)}">${badge(c,1)}${esc(catLabel(c))} <small>${cnt[c.key]}</small></button>`).join('')
@@ -502,7 +522,7 @@ let editId=null;const f=$('#form');
 const dl=lookEditor($('#dlook'),{resetBoth:true,fallback:()=>{const c=cat(f.type.value);return {icon:c.icon,color:c.color||defColor(c.key)}},onpaint:b=>$('#lookprev').innerHTML=b});
 f.type.onchange=()=>dl.paint();
 function open(d){fillTypes();editId=d?.id??null;$('#dt').textContent=t(d?'dlg.edit':'dlg.new');$('#err').textContent='';
-  for(const k of['name','ip','mac','vendor','type','notes'])f[k].value=d?d[k]:(k==='type'?cat('iot').key:'');
+  for(const k of['name','ip','mac','vendor','model','type','notes'])f[k].value=d?d[k]:(k==='type'?cat('iot').key:'');
   f.reserved.value=d?.reserved??0;dl.set(d?.icon,d?.color);$('#famrow').hidden=true;$('#fam').checked=false;
   if(d)api('GET',`/api/devices/${d.id}/family`).then(r=>{if(editId!==d.id||!r.count)return;$('#famtxt').textContent=t('fam.apply',{n:r.count,v:r.vendor});$('#famtxt').title=r.names.join(', ');$('#famrow').hidden=false}).catch(()=>{});
   $('#lookbox').open=!!(d?.icon||d?.color);$('#sug').hidden=true;$('#dlg').showModal();suggest()}
@@ -510,11 +530,12 @@ $('#add').onclick=()=>open();$('#cancel').onclick=()=>$('#dlg').close();
 $('#rows').onclick=async e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.s)scan([+b.dataset.s]);
+  if(b.dataset.g)identify([+b.dataset.g]);
   if(b.dataset.e)open(devices.find(d=>d.id==b.dataset.e));
   if(b.dataset.x){const d=devices.find(d=>d.id==b.dataset.x);
     if(confirm(t('del.confirm',{n:d.name}))){await api('DELETE','/api/devices/'+d.id);load()}}};
 f.onsubmit=async e=>{e.preventDefault();
-  const b=Object.fromEntries(['name','ip','mac','vendor','type','notes'].map(k=>[k,f[k].value]));b.reserved=+f.reserved.value;Object.assign(b,dl.get());b.family=$('#fam').checked&&!$('#famrow').hidden;
+  const b=Object.fromEntries(['name','ip','mac','vendor','model','type','notes'].map(k=>[k,f[k].value]));b.reserved=+f.reserved.value;Object.assign(b,dl.get());b.family=$('#fam').checked&&!$('#famrow').hidden;
   try{await api(editId?'PUT':'POST','/api/devices'+(editId?'/'+editId:''),b);$('#dlg').close();load()}
   catch(x){$('#err').textContent=x.message}};
 
@@ -594,6 +615,35 @@ $('#bfile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f
 $('#bkbtn').onclick=openBackups;
 $('#bclose').onclick=()=>$('#bdlg').close();
 
+// identificazione: prove in LAN, punteggio locale, ricerca web (con disclaimer alla prima volta)
+const CONF={high:'id.conf.high',medium:'id.conf.medium',low:'id.conf.low'};
+let webOk=false;try{webOk=localStorage.getItem('webok')==='1'}catch{}
+const askWeb=()=>webOk?Promise.resolve(true):new Promise(ok=>{const d=$('#wdlg');
+  $('#wyes').onclick=()=>{webOk=true;try{localStorage.setItem('webok','1')}catch{}d.close();ok(true)};$('#wno').onclick=()=>{d.close();ok(false)};d.showModal()});
+async function identify(ids){
+  if(!ids.length||!await askWeb())return;
+  const d=$('#rundlg'),t0=Date.now();ids.forEach(i=>identifying.add(i));$('#identall').classList.add('spin');render();
+  d.classList.remove('done');$('#rtitle').textContent=t('id.run.title');$('#rsub').textContent=t('id.run.sub');$('#rok').hidden=true;
+  const tick=()=>{const s=Math.floor((Date.now()-t0)/1000);$('#rtime').textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+  tick();runT=setInterval(tick,1000);d.showModal();let res=null;
+  try{res=await api('POST','/api/identify',{ids,web:true});await load()}
+  catch(x){$('#rtitle').textContent=t('run.fail');$('#rsub').textContent=x.message;d.classList.add('done');$('#rok').hidden=false}
+  finally{clearInterval(runT);ids.forEach(i=>identifying.delete(i));$('#identall').classList.remove('spin');render()}
+  if(res){d.close();showIdent(res)}}
+function webMsg(w){return w==='ok'?'':w==='nodata'?t('id.web.nodata'):w==='off'?t('id.web.off'):t('id.web.fail')+' '+esc(w.replace(/^unavailable:\s*/,''))}
+function showIdent(res){
+  $('#idbody').innerHTML=res.map(r=>`<div class="idres" data-id="${r.id}"><h3>${esc(r.name)}</h3>${webMsg(r.web)?`<p class="st">${webMsg(r.web)}</p>`:''}`
+    +(r.candidates.length?r.candidates.map((c,i)=>`<div class="cand"><div><b>${esc([c.vendor,c.model].filter(Boolean).join(' ')||t('id.nomodel'))}</b>${c.type?` <small>${esc(catLabel(cat(c.type)))}</small>`:''}<span class="cf ${c.confidence}">${t(CONF[c.confidence])}</span></div>
+      <button class="btn" data-ap="${i}">${t('id.apply')}</button><small>${c.why.map(esc).join(' · ')}</small>${(c.links||[]).map(l=>`<small><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.title||l.url)}</a></small>`).join('')}</div>`).join(''):`<p class="st">${t('id.none')}</p>`)
+    +'</div>').join('');
+  $('#idbody').onclick=async e=>{const b=e.target.closest('[data-ap]');if(!b)return;const row=b.closest('.idres'),r=res.find(x=>x.id==row.dataset.id),c=r.candidates[+b.dataset.ap],d=devices.find(x=>x.id===r.id);
+    const body={...d,model:c.model||d.model,vendor:d.vendor||c.vendor,type:d.type==='iot'&&c.type&&cats.some(k=>k.key===c.type)?c.type:d.type};
+    try{await api('PUT','/api/devices/'+d.id,body);await load();b.disabled=true;b.textContent=t('id.applied')}catch(x){alert(x.message)}};
+  $('#idlg').showModal()}
+$('#idclose').onclick=()=>$('#idlg').close();
+$('#identall').onclick=()=>{const ids=devices.filter(d=>d.ip&&!d.model).map(d=>d.id).slice(0,40);if(ids.length&&confirm(t('id.all.confirm',{n:ids.length})))identify(ids)};
+const applyWeb=()=>document.body.classList.toggle('noweb',sess.web===false);
+
 // lingua
 function applyLang(){
   document.documentElement.lang=lang;
@@ -623,7 +673,7 @@ const startApp=()=>load().then(()=>{if({{AUTO}}&&sess.first)discover()}).catch((
 function showLogin(){if($('#ldlg').open)return;$('#lerr').textContent='';$('#ldlg').showModal();$('#lform').username.focus()}
 $('#ldlg').oncancel=e=>e.preventDefault();  // no way around the login
 $('#lform').onsubmit=async e=>{e.preventDefault();const f=e.target;
-  try{await api('POST','/api/login',{username:f.username.value,password:f.password.value});f.password.value='';$('#ldlg').close();sess=await api('GET','/api/session');startApp()}
+  try{await api('POST','/api/login',{username:f.username.value,password:f.password.value});f.password.value='';$('#ldlg').close();sess=await api('GET','/api/session');applyWeb();startApp()}
   catch(x){$('#lerr').textContent=x.message}};
 function acctOpen(){$('#aerr').textContent='';const f=$('#aform');f.password.value=f.current.value='';f.username.value=sess.user||'';
   $('#astate').textContent=sess.login?t('acct.on',{u:sess.user}):t('acct.none');
@@ -636,7 +686,7 @@ $('#aoff').onclick=async()=>{const f=$('#aform');if(!f.current.value)return $('#
   try{await api('DELETE','/api/account',{current:f.current.value});sess={login:false,user:null};$('#adlg').close()}catch(x){$('#aerr').textContent=x.message}};
 $('#aout').onclick=async()=>{await api('POST','/api/logout',{});location.reload()};
 $('#mout').onclick=()=>$('#aout').click();
-api('GET','/api/session').then(s=>{sess=s;if(!s.login||s.user)startApp();else showLogin()}).catch(()=>{});
+api('GET','/api/session').then(s=>{sess=s;applyWeb();if(!s.login||s.user)startApp();else showLogin()}).catch(()=>{});
 </script>
 </body>
 </html>

@@ -18,6 +18,7 @@ Python standard library only. Optional login, no cloud, one SQLite file.</p>
 - Port scan, per device or for all online devices. Separate from the refresh. The list of ports to check is editable (ranges allowed, `22,80,8000-8100`), with one click back to the known ports. A compact view replaces the ports with an icon (or `-`).
 - Backups from the web UI: create, add a note, download, import a file, restore. History in a `backups/` folder next to the database (so a Docker volume keeps it). A restore first saves an automatic backup. The login user is never in a backup, and a restore keeps it.
 - Editable categories (name, icon, icon color), each with its own default color so they differ at a glance. A device can have its own icon and color that win over the category ones. A checkbox applies category, icon and color to every device of the same producer (by MAC prefix, e.g. all Espressif). Color picker with a standard palette. Filters, sort by type.
+- Identification, step by step. **Discover** also listens to mDNS and SSDP and reads host names, so new devices get a vendor, a category and a **model** (shown under the name) when the match is not weak. The port scan also reads banners and page titles. The **globe button** (per device, or in the top bar for all devices without a model) collects fresh evidence, scores it with `fingerprints.json` (a public table of host names, mDNS models, ports, banners per vendor, no data of anybody's LAN) and searches the web for the model codes it found. Result: candidates with a confidence (high, medium, low), the evidence and the links. You apply or discard, nothing is overwritten by itself. A rule-based method, not AI. The web step sends only vendor and model code (or host name), never the MAC or the IP, asks once with a disclaimer, and is off with `--no-web`. Search engines may refuse automated requests: point `--search-url` to your own SearXNG.
 - Recognition: vendor from the MAC prefix (IEEE OUI database, updatable in one click, registry URLs editable), category from editable rules. LANtern suggests, you confirm.
 - CSV and Excel export. Import from a CSV (LANtern's own export works as a backup) or an nmap XML (`nmap -sn -oX`). Known MACs are never overwritten.
 - 30 themes in one menu: Classic Light and Classic Dark first (the default follows your OS), then Ayu, Catppuccin, Dracula, Nord, Tokyo Night, Kanagawa and more, each with a light variant when it has one. Font size (with reset), Italian and English (flag in the top bar).
@@ -45,6 +46,8 @@ Needs Python 3. `nmap` is optional (port scan only). The OS is detected at start
 | `--db FILE` (or env `LANTERN_DB`) | `lantern.db` next to `app.py` | SQLite file |
 | `--subnet CIDR` | detected | Subnet to sweep, repeatable, `/22` at most. Use it when detection picks the wrong network (VPN, several adapters) |
 | `--no-discover` | off | Skip the discovery on first start (the Discover button still works) |
+| `--no-web` (or env `LANTERN_NO_WEB=1`) | off | Never search the web to identify devices, and hide the globe button |
+| `--search-url URL` (or env `LANTERN_SEARCH_URL`) | DuckDuckGo HTML | Search page used by Identify, `{q}` is the query. HTML or JSON (SearXNG) |
 | `--set-password USER` | | Create or replace the login user, then exit |
 | `--disable-login` | | Remove the login user, then exit |
 | `--version` | | Print the version |
@@ -71,14 +74,14 @@ Then open `http://127.0.0.1:8099` (or the host and port you set). On the first s
 | `LANTERN_HOST` | `127.0.0.1` | Listen address. `0.0.0.0` or a LAN address needs a user, or the container stops |
 | `LANTERN_PORT` | `8099` | HTTP port. With the host network it is used directly: it must be free |
 | `LANTERN_DATA` | `lantern-data` | Database: a Docker volume name, or a host folder (`./lantern_data`, `/srv/lantern`; keep the `./`). Docker creates the folder: do not create it yourself |
-| `LANTERN_SUBNET`, `LANTERN_NO_DISCOVER` | unset | Same as `--subnet` and `--no-discover` |
+| `LANTERN_SUBNET`, `LANTERN_NO_DISCOVER`, `LANTERN_NO_WEB`, `LANTERN_SEARCH_URL` | unset | Same as `--subnet`, `--no-discover`, `--no-web`, `--search-url` |
 | `TZ` | `Europe/Rome` | Time zone of the container |
 
 Update: `git pull && docker compose up -d --build`. The data and the backups stay in the volume or folder. Stop: `docker compose down`.
 
 Emptying `LANTERN_USER` does not remove a user already stored in the database. To do that: `docker compose exec lantern python app.py --disable-login`.
 
-The same variables work without Docker: `LANTERN_HOST`, `LANTERN_PORT`, `LANTERN_DB`, `LANTERN_USER`, `LANTERN_PASSWORD`, `LANTERN_SUBNET`, `LANTERN_NO_DISCOVER`.
+The same variables work without Docker: `LANTERN_HOST`, `LANTERN_PORT`, `LANTERN_DB`, `LANTERN_USER`, `LANTERN_PASSWORD`, `LANTERN_SUBNET`, `LANTERN_NO_DISCOVER`, `LANTERN_NO_WEB`, `LANTERN_SEARCH_URL`.
 
 ## Login
 

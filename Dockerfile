@@ -6,7 +6,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY app.py index.html logo.svg ./
+COPY app.py fingerprints.json index.html logo.svg ./
 
 ENV LANTERN_DB=/data/lantern.db \
     PYTHONUNBUFFERED=1

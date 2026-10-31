@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """LANtern: LAN inventory and radar (standard library only). Usage: python3 app.py [port]"""
-import argparse, contextlib, getpass, hashlib, hmac, secrets, time, csv, io, ipaddress, json, os, re, socket, sqlite3, subprocess, sys, urllib.request, uuid, zipfile
+import argparse, contextlib, fnmatch, getpass, hashlib, hmac, html, secrets, select, struct, time, csv, io, ipaddress, json, os, re, socket, sqlite3, ssl, subprocess, sys, urllib.parse, urllib.request, uuid, zipfile
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 from concurrent.futures import ThreadPoolExecutor
@@ -8,7 +8,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.8.3"
+VERSION = "0.9.0"
 DIR = Path(__file__).parent
 DB = Path(os.environ.get("LANTERN_DB", DIR / "lantern.db"))  # --db overrides
 WIN = os.name == "nt"
@@ -19,7 +19,7 @@ SESSIONS = {}  # token -> (username, expires). In memory on purpose: a restart l
 FAILS = {}  # client ip -> (failures, locked until)
 SESSION_TTL, MAX_FAILS, LOCK_SECONDS = 12 * 3600, 5, 60
 PUBLIC = ("/", "/logo.svg", "/api/login", "/api/session")
-FIELDS = ("name", "ip", "mac", "vendor", "type", "notes", "reserved", "icon", "color")  # icon, color: look of this device, empty = the category one
+FIELDS = ("name", "ip", "mac", "vendor", "model", "type", "notes", "reserved", "icon", "color")  # icon, color: look of this device, empty = the category one
 MAC_RE = re.compile(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$")
 
 # Optional first-run import: seed.local.json = [[name, ip, mac, vendor, type, notes, reserved], ...]
@@ -66,6 +66,8 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     if new:  # until the first discovery (meta 'discovered') the page runs one by itself
         c.execute("INSERT OR IGNORE INTO meta VALUES ('fresh', '1')")
+    c.execute("CREATE TABLE IF NOT EXISTS evidence (device_id INTEGER NOT NULL, source TEXT NOT NULL, value TEXT NOT NULL, seen_at TEXT NOT NULL DEFAULT (datetime('now','localtime')), PRIMARY KEY (device_id, source, value))")
+    c.execute("CREATE TABLE IF NOT EXISTS lookups (query TEXT PRIMARY KEY, results TEXT NOT NULL, fetched_at TEXT NOT NULL DEFAULT (datetime('now')))")
     c.execute("CREATE TABLE IF NOT EXISTS rules (id INTEGER PRIMARY KEY, field TEXT NOT NULL, pattern TEXT NOT NULL, category TEXT NOT NULL)")
     if not c.execute("SELECT 1 FROM rules").fetchone():
         c.executemany("INSERT INTO rules (field,pattern,category) VALUES (?,?,?)", RULES)
@@ -74,7 +76,7 @@ def db():
             c.executemany("INSERT OR IGNORE INTO oui VALUES (?,?)", re.findall(r"^([0-9A-F]{6})\s+\(base 16\)\s+(.+?)\s*$", fh.read(), re.M))
         c.execute("INSERT OR REPLACE INTO meta VALUES ('oui_source', 'system database'), ('oui_updated', datetime('now','localtime'))")
     c.commit()
-    for col in ("ports", "scanned_at", "icon", "color"):  # migration from versions without these columns
+    for col in ("ports", "scanned_at", "icon", "color", "model"):  # migration from versions without these columns
         if col not in [r[1] for r in c.execute("PRAGMA table_info(devices)")]:
             c.execute(f"ALTER TABLE devices ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
     if not c.execute("SELECT 1 FROM devices").fetchone():  # new database: the seed does not count as a discovery
@@ -122,7 +124,7 @@ def scan(ip, ports=SCAN_PORTS):
 
 # Backups: files next to the database, so a Docker volume keeps them. The login (users table) is never included.
 BK_RE = re.compile(r"lantern-\d{8}-\d{6}(?:-\d+)?\.db")
-BK_TABLES = ("devices", "categories", "rules", "oui", "meta")
+BK_TABLES = ("devices", "categories", "rules", "oui", "meta", "evidence")
 MAX_UPLOAD = 128 * 1024 * 1024
 
 
@@ -201,8 +203,8 @@ def bk_restore(name):
             for t in BK_TABLES:
                 have = {r[1] for r in c.execute(f"PRAGMA bk.table_info({t})")}  # a backup from an older version may lack columns
                 cols = ",".join(r[1] for r in c.execute(f"PRAGMA main.table_info({t})") if r[1] in have)
+                c.execute(f"DELETE FROM main.{t}")  # also when an older backup lacks the table: its state had none
                 if cols:
-                    c.execute(f"DELETE FROM main.{t}")
                     c.execute(f"INSERT INTO main.{t} ({cols}) SELECT {cols} FROM bk.{t}")
             c.commit()
         except sqlite3.Error:
@@ -285,8 +287,8 @@ def devices_with_status(c):
     return rows
 
 
-EXPORT_HEAD = {"it": ["Nome", "IP", "MAC", "Produttore", "Tipo", "Stato", "Assegnazione IP", "Porte in ascolto", "Note"],
-               "en": ["Name", "IP", "MAC", "Vendor", "Type", "Status", "IP assignment", "Listening ports", "Notes"]}
+EXPORT_HEAD = {"it": ["Nome", "IP", "MAC", "Produttore", "Modello", "Tipo", "Stato", "Assegnazione IP", "Porte in ascolto", "Note"],
+               "en": ["Name", "IP", "MAC", "Vendor", "Model", "Type", "Status", "IP assignment", "Listening ports", "Notes"]}
 ASSIGN = {"it": ["Dinamico", "Reservation", "Fisso"], "en": ["Dynamic", "Reservation", "Static"]}
 STATUS = {"it": {"on": "Online", "off": "Offline", "conflict": "MAC diverso", None: "N/D"},
           "en": {"on": "Online", "off": "Offline", "conflict": "MAC mismatch", None: "N/A"}}
@@ -294,7 +296,7 @@ STATUS = {"it": {"on": "Online", "off": "Offline", "conflict": "MAC diverso", No
 
 def export_rows(c, lang="it"):
     labels = dict(c.execute("SELECT key, label FROM categories"))
-    return [EXPORT_HEAD[lang]] + [[d["name"], d["ip"], d["mac"], d["vendor"], labels.get(d["type"], d["type"]), STATUS[lang][d["status"]],
+    return [EXPORT_HEAD[lang]] + [[d["name"], d["ip"], d["mac"], d["vendor"], d["model"], labels.get(d["type"], d["type"]), STATUS[lang][d["status"]],
                              ASSIGN[lang][d["reserved"]], d["ports"], d["notes"]] for d in devices_with_status(c)]
 
 
@@ -392,11 +394,11 @@ def suggest(c, mac, name, ports):
     return {"vendor": vendor, "local": local, "category": None, "rule": None}
 
 
-def add_new(c, name, ip, mac, vendor="", type="", notes="", reserved=0):
+def add_new(c, name, ip, mac, vendor="", type="", notes="", reserved=0, model=""):
     """Insert a device unless its MAC is already known; vendor and category come from OUI and rules when missing."""
     s = suggest(c, mac, name, "")
-    return c.execute("INSERT OR IGNORE INTO devices (name,ip,mac,vendor,type,notes,reserved) VALUES (?,?,?,?,?,?,?)",
-                     (name or s["vendor"] or f"Device {ip}", ip, mac, vendor or s["vendor"], type or s["category"] or "iot", notes, reserved)).rowcount
+    return c.execute("INSERT OR IGNORE INTO devices (name,ip,mac,vendor,type,notes,reserved,model) VALUES (?,?,?,?,?,?,?,?)",
+                     (name or s["vendor"] or f"Device {ip}", ip, mac, vendor or s["vendor"], type or s["category"] or "iot", notes, reserved, model)).rowcount
 
 
 def discover(c):
@@ -419,13 +421,463 @@ def discover(c):
             return ""
     with ThreadPoolExecutor(32) as ex:
         names = dict(zip(found, ex.map(host, found.values())))
+    before = {r[0] for r in c.execute("SELECT id FROM devices")}
     added = sum(add_new(c, names[mac], ip, mac) for mac, ip in found.items())
+    c.commit()
+    for mac, name in names.items():
+        row = c.execute("SELECT id FROM devices WHERE mac=?", (mac,)).fetchone()
+        if row and name:
+            store_evidence(c, row[0], "rdns", [name])
+    collect_lan(c)
+    auto_identify(c, [r[0] for r in c.execute("SELECT id FROM devices") if r[0] not in before])
     c.commit()
     return {"found": len(found), "added": added}
 
 
+# ---- identification: evidence from the LAN + the public fingerprints.json + an optional web search ----
+FP_FILE = DIR / "fingerprints.json"
+NO_WEB = False  # --no-web
+SEARCH_URL = "https://html.duckduckgo.com/html/?q={q}"  # --search-url: any HTML or JSON (SearXNG) search page
+MDNS_TYPES = ("_hap._tcp", "_spotify-connect._tcp", "_matter._tcp", "_googlecast._tcp", "_airplay._tcp", "_raop._tcp",
+              "_companion-link._tcp", "_http._tcp", "_ipp._tcp", "_printer._tcp", "_smb._tcp", "_device-info._tcp",
+              "_workstation._tcp", "_amzn-wplay._tcp", "_sonos._tcp", "_hue._tcp", "_esphomelib._tcp", "_shelly._tcp",
+              "_ewelink._tcp", "_samsungmsf._tcp", "_ssh._tcp")
+MD_KEYS = ("md", "am", "ty", "product", "usb_MDL")  # TXT keys that carry a model ("model" is not read: some NAS fake it)
+WEB_PORTS, TLS_PORTS = {80, 81, 3000, 5000, 8000, 8008, 8080, 8081, 8888, 9000}, {443, 5001, 8443}
+_FP = []
+
+
+class WebError(Exception):
+    pass
+
+
+def load_fingerprints():
+    if not _FP:
+        _FP.extend(json.loads(FP_FILE.read_text(encoding="utf-8")))
+    return _FP
+
+
+def conf(score):
+    return "high" if score >= 4 else "medium" if score >= 2 else "low"
+
+
+def dns_query(names):  # one PTR question per name, with the "unicast reply" bit
+    return b"\0\0\0\0" + len(names).to_bytes(2, "big") + b"\0" * 6 + b"".join(
+        b"".join(bytes([len(x)]) + x.encode() for x in n.split(".")) + b"\0\x00\x0c\x80\x01" for n in names)
+
+
+def dns_name(d, i):
+    labels, end = [], 0
+    for _ in range(64):  # a compression loop must not hang us
+        n = d[i]
+        if n == 0:
+            return ".".join(labels), end or i + 1
+        if n & 0xC0 == 0xC0:
+            end = end or i + 2
+            i = ((n & 0x3F) << 8) | d[i + 1]
+        else:
+            labels.append(d[i + 1:i + 1 + n].decode(errors="replace"))
+            i += 1 + n
+    return ".".join(labels), end or i
+
+
+def dns_records(d):
+    """[(owner, type, value)]: PTR -> name, SRV -> target, A -> address, TXT -> {key: value}. A broken packet gives what was read."""
+    out = []
+    try:
+        qd, an, ns, ar = struct.unpack(">4H", d[4:12])
+        i = 12
+        for _ in range(qd):
+            i = dns_name(d, i)[1] + 4
+        for _ in range(an + ns + ar):
+            name, i = dns_name(d, i)
+            t, _, _, ln = struct.unpack(">HHIH", d[i:i + 10])
+            i += 10
+            if t == 12:
+                out.append((name, t, dns_name(d, i)[0]))
+            elif t == 33:
+                out.append((name, t, dns_name(d, i + 6)[0]))
+            elif t == 1 and ln == 4:
+                out.append((name, t, ".".join(map(str, d[i:i + 4]))))
+            elif t == 16:
+                kv, j, r = {}, 0, d[i:i + ln]
+                while j < len(r):
+                    k, _, v = r[j + 1:j + 1 + r[j]].decode(errors="replace").partition("=")
+                    kv[k] = v
+                    j += 1 + r[j]
+                out.append((name, t, kv))
+            i += ln
+    except (IndexError, struct.error):
+        pass
+    return out
+
+
+def mdns_scan(wait=3):
+    """{ip: {"host": set, "svc": set, "md": set}}: one multicast question for the common service types, then listen."""
+    found, socks = {}, []
+    tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    tx.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
+    socks.append(tx)
+    try:  # also hear the answers other devices send to the group (port 5353 is shared with avahi and the like)
+        rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        rx.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if hasattr(socket, "SO_REUSEPORT"):
+            rx.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        rx.bind(("", 5353))
+        rx.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton("224.0.0.251") + socket.inet_aton("0.0.0.0"))
+        socks.append(rx)
+    except OSError:
+        pass
+    try:
+        tx.sendto(dns_query(["_services._dns-sd._udp.local"] + [t + ".local" for t in MDNS_TYPES]), ("224.0.0.251", 5353))
+        end = time.time() + wait
+        while time.time() < end:
+            for s in select.select(socks, [], [], 0.3)[0]:
+                d, a = s.recvfrom(9000)
+                if len(d) < 12 or not d[2] & 0x80:  # a question of another host, not an answer
+                    continue
+                e = found.setdefault(a[0], {"host": set(), "svc": set(), "md": set()})
+                for name, t, v in dns_records(d):
+                    if t == 12:
+                        e["svc"].add((v if name.startswith("_services.") else name).removesuffix(".local"))
+                    elif t in (33, 1):
+                        e["host"].add((v if t == 33 else name).removesuffix(".local"))
+                    elif t == 16:
+                        e["md"].update(v[k] for k in MD_KEYS if v.get(k))
+    finally:
+        for s in socks:
+            s.close()
+    return found
+
+
+def ssdp_scan(wait=3):
+    """{ip: ["server: ...", "manufacturer: ...", "model: ...", "name: ..."]}: SSDP answers and the device description."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0.5)
+    seen = {}
+    try:
+        for _ in range(2):
+            s.sendto(b'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\nMX: 2\r\nST: ssdp:all\r\n\r\n', ("239.255.255.250", 1900))
+        end = time.time() + wait
+        while time.time() < end:
+            try:
+                d, a = s.recvfrom(4096)
+            except socket.timeout:
+                continue
+            h = {k.lower(): v for k, v in re.findall(r"^([A-Za-z-]+):\s*(.*?)\r?$", d.decode(errors="replace"), re.M)}
+            e = seen.setdefault(a[0], {"server": h.get("server", ""), "loc": set()})
+            if "location" in h:
+                e["loc"].add(h["location"])
+    finally:
+        s.close()
+    out = {}
+    for ip, e in seen.items():
+        vals = [f"server: {e['server'][:80]}"] if e["server"] else []
+        for loc in sorted(e["loc"])[:2]:
+            u = urllib.parse.urlsplit(loc)
+            if u.scheme != "http" or u.hostname != ip:  # the description must come from the device that answered
+                continue
+            try:  # shortcut: ElementTree does not guard against hostile XML, fine for a device of your own LAN
+                x = ET.fromstring(urllib.request.urlopen(loc, timeout=3).read(65536))
+            except (OSError, ET.ParseError, ValueError):
+                continue
+            for tag, label in (("manufacturer", "manufacturer"), ("modelName", "model"), ("friendlyName", "name")):
+                el = next((n for n in x.iter() if n.tag.rsplit("}", 1)[-1] == tag), None)
+                if el is not None and el.text and el.text.strip():
+                    vals.append(f"{label}: {el.text.strip()[:60]}")
+        out[ip] = list(dict.fromkeys(vals))
+    return out
+
+
+def http_peek(ip, port, tls):
+    """(Server header, page title) of GET /. Read only, no login."""
+    s = socket.create_connection((ip, port), 3)
+    s.settimeout(3)
+    if tls:
+        cx = ssl.create_default_context()
+        cx.check_hostname, cx.verify_mode = False, ssl.CERT_NONE  # a LAN device with its own certificate: we only read a title
+        s = cx.wrap_socket(s)
+    s.sendall(f"GET / HTTP/1.0\r\nHost: {ip}\r\n\r\n".encode())
+    d = b""
+    while len(d) < 6000:
+        x = s.recv(2000)
+        if not x:
+            break
+        d += x
+    s.close()
+    d = d.decode(errors="replace")
+    srv, ti = re.search(r"^Server:\s*(.*?)\r?$", d, re.M | re.I), re.search(r"<title[^>]*>(.*?)</title>", d, re.S | re.I)
+    return (srv.group(1).strip() if srv else ""), (html.unescape(ti.group(1)).strip() if ti else "")
+
+
+def banners(ip, ports):
+    """[(source, text)] read from the open ports: SSH banner, HTTP Server and title, RTSP realm (without its serial)."""
+    out = []
+    for p in (int(x.split("/")[0]) for x in ports.split(",") if x):
+        try:
+            if p == 22:
+                s = socket.create_connection((ip, p), 3)
+                s.settimeout(3)
+                line = s.recv(100).split(b"\n")[0].decode(errors="replace").strip()
+                s.close()
+                if line.startswith("SSH-"):
+                    out.append(("banner", "ssh: " + line[:60]))
+            elif p == 554:
+                s = socket.create_connection((ip, p), 3)
+                s.settimeout(3)
+                s.sendall(f"OPTIONS rtsp://{ip}/ RTSP/1.0\r\nCSeq: 1\r\n\r\n".encode())
+                m = re.search(r'realm="([^"]*)"', s.recv(600).decode(errors="replace"))
+                s.close()
+                if m:
+                    out.append(("banner", "rtsp-realm: " + " ".join(m.group(1).split()[:2])))
+            elif p in WEB_PORTS | TLS_PORTS:
+                srv, title = http_peek(ip, p, p in TLS_PORTS)
+                out += ([("banner", "http-server: " + srv[:40])] if srv else []) + ([("title", title[:80])] if title else [])
+        except (OSError, ssl.SSLError):
+            pass
+    return out
+
+
+def scan_one(ip, ports):
+    found = scan(ip, ports)
+    return found, banners(ip, found)
+
+
+def store_evidence(c, did, source, values):
+    c.execute("DELETE FROM evidence WHERE device_id=? AND source=?", (did, source))
+    c.executemany("INSERT OR IGNORE INTO evidence (device_id, source, value) VALUES (?,?,?)", [(did, source, v) for v in values if v])
+
+
+def store_banners(c, did, pairs):
+    for source in ("title", "banner"):
+        store_evidence(c, did, source, [v for s, v in pairs if s == source])
+
+
+def collect_lan(c):
+    """mDNS and SSDP answers of the whole LAN (about 3 seconds), kept as evidence of the devices with that IP."""
+    with ThreadPoolExecutor(2) as ex:
+        fs = {"mdns": ex.submit(mdns_scan), "ssdp": ex.submit(ssdp_scan)}
+    res = {}
+    for k, f in fs.items():
+        try:
+            res[k] = f.result()
+        except OSError:  # no multicast here (container network, firewall): the rest still works
+            res[k] = {}
+    for did, ip in list(c.execute("SELECT id, ip FROM devices WHERE ip != ''")):
+        if ip in res["mdns"]:
+            e = res["mdns"][ip]
+            for src, key in (("mdns_host", "host"), ("svc", "svc"), ("md", "md")):
+                if e[key]:
+                    store_evidence(c, did, src, sorted(e[key]))
+        if res["ssdp"].get(ip):
+            store_evidence(c, did, "ssdp", res["ssdp"][ip])
+    c.commit()
+
+
+def evidence(c, did):
+    ev = {}
+    for source, value in c.execute("SELECT source, value FROM evidence WHERE device_id=?", (did,)):
+        ev.setdefault(source, []).append(value)
+    return ev
+
+
+def fp_match(fp, ev, oui, ports):
+    """{key: matched evidence} when every matching key of the entry hits, else None."""
+    hosts = ev.get("rdns", []) + ev.get("mdns_host", [])
+    hits = {}
+    for key, pat in fp.items():
+        if key in ("vendor", "type", "model", "model_from_host", "w"):
+            continue
+        if key == "host":
+            hit = next((h for h in hosts if fnmatch.fnmatchcase(h.lower(), pat.lower())), None)
+        elif key == "title":
+            hit = next((t for t in ev.get("title", []) if fnmatch.fnmatchcase(t.lower(), pat.lower())), None)
+        elif key == "oui":
+            hit = oui if pat in oui.lower() else None
+        elif key == "md":
+            hit = next((m for m in ev.get("md", []) if m.lower() == pat.lower()), None)
+        elif key in ("svc", "ssdp", "banner"):
+            hit = next((x for x in ev.get(key, []) if pat.lower() in x.lower()), None)
+        elif key == "ports":
+            hit = ",".join(map(str, pat)) if all(p in ports for p in pat) else None
+        else:
+            hit = None
+        if not hit:
+            return None
+        hits[key] = hit
+    return hits or None
+
+
+def identify_local(c, d):
+    """Candidates [{vendor, type, model, score, confidence, why}] from the evidence of the device, the OUI and the fingerprints."""
+    ev = evidence(c, d["id"])
+    oui = oui_vendor(c, d["mac"])[0]
+    ports = {int(p.split("/")[0]) for p in d["ports"].split(",") if p}
+    cands = {}
+
+    def add(vendor, type_, model, w, why):
+        e = cands.setdefault(vendor.lower(), {"vendor": vendor, "score": 0, "types": {}, "models": {}, "why": []})
+        e["score"] += w
+        for k, v in (("types", type_), ("models", model)):
+            if v:
+                e[k][v] = e[k].get(v, 0) + w
+        e["why"] += why
+
+    for fp in load_fingerprints():
+        hits = fp_match(fp, ev, oui, ports)
+        if hits:
+            model = fp.get("model", "")
+            if fp.get("model_from_host"):
+                model = hits["host"][len(re.split(r"[*?]", fp["host"])[0]):].strip(" _-")
+            add(fp.get("vendor", ""), fp.get("type", ""), model, fp.get("w", 1), [f"{k}: {v}" for k, v in hits.items()])
+    desc = {s.split(": ", 1)[0]: s.split(": ", 1)[1] for s in ev.get("ssdp", []) if ": " in s}
+    if desc.get("model"):
+        add(desc.get("manufacturer", ""), "", desc["model"], 2, [f"ssdp: {desc.get('manufacturer', '')} {desc['model']}".replace("  ", " ")])
+    top = lambda m: max(m, key=m.get, default="")
+    nov = cands.pop("", None)  # hits without a vendor (a page title, a hostname) join the vendor of the same category
+    if nov:
+        tgt = next((e for e in sorted(cands.values(), key=lambda e: -e["score"]) if top(e["types"]) == top(nov["types"])), None)
+        if tgt:
+            tgt["score"] += nov["score"]
+            tgt["why"] += nov["why"]
+            for k in ("types", "models"):
+                for m, w in nov[k].items():
+                    tgt[k][m] = tgt[k].get(m, 0) + w
+        else:
+            cands[""] = nov
+    for e in cands.values():  # the MAC producer agrees with the vendor: one more point, once
+        if e["vendor"] and oui and not any(w.startswith("oui:") for w in e["why"]) and (e["vendor"].lower() in oui.lower() or oui.lower().split()[0] in e["vendor"].lower()):
+            e["score"] += 1
+            e["why"].append(f"oui: {oui}")
+    return sorted(({"vendor": e["vendor"], "type": top(e["types"]), "model": top(e["models"]), "score": e["score"],
+                    "confidence": conf(e["score"]), "why": e["why"]} for e in cands.values()), key=lambda x: -x["score"])
+
+
+def auto_identify(c, ids):
+    """New devices only: keep the model, and the vendor and category while they are empty or the default, if the match is not weak."""
+    for did in ids:
+        d = dict(c.execute("SELECT * FROM devices WHERE id=?", (did,)).fetchone())
+        top = (identify_local(c, d) or [None])[0]
+        if top and top["confidence"] != "low":
+            known = c.execute("SELECT 1 FROM categories WHERE key=?", (top["type"],)).fetchone()
+            c.execute("UPDATE devices SET model=?, vendor=?, type=? WHERE id=?",
+                      (top["model"], d["vendor"] or top["vendor"], top["type"] if known and d["type"] == "iot" else d["type"], did))
+
+
+def parse_results(body):
+    """[{title, url, snippet}] from a SearXNG JSON answer or a DuckDuckGo-style HTML page."""
+    if body.lstrip().startswith("{"):
+        return [{"title": r.get("title", ""), "url": r.get("url", ""), "snippet": r.get("content", "")} for r in json.loads(body).get("results", [])[:10]]
+    plain = lambda t: html.unescape(re.sub(r"<[^>]+>", "", t)).strip()
+    out = []
+    for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>(.*?)(?=<a[^>]+class="result__a"|\Z)', body, re.S):
+        href, title, rest = m.groups()
+        u, sn = re.search(r"uddg=([^&]+)", href), re.search(r'class="result__snippet"[^>]*>(.*?)</a>', rest, re.S)
+        out.append({"title": plain(title), "url": urllib.parse.unquote(u.group(1)) if u else html.unescape(href), "snippet": plain(sn.group(1)) if sn else ""})
+    return out[:10]
+
+
+def web_lookup(c, q):
+    """Search results for q, from the cache (30 days) or the search engine. Honest User-Agent: a refusal is reported, not worked around."""
+    row = c.execute("SELECT results FROM lookups WHERE query=? AND fetched_at > datetime('now','-30 days')", (q,)).fetchone()
+    if row:
+        return json.loads(row[0])
+    url = SEARCH_URL.replace("{q}", urllib.parse.quote_plus(q))
+    if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
+        raise WebError("the search URL must be http or https")
+    time.sleep(1)  # one request a second at most
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": f"LANtern/{VERSION} (+https://github.com/nightwatch75/lantern)"}), timeout=8) as r:
+            status, body = r.status, r.read(500000).decode(errors="replace")
+    except OSError as e:
+        raise WebError(f"search failed: {e}")
+    try:
+        res = parse_results(body) if status == 200 else []
+    except ValueError:
+        res = []
+    if not res:
+        raise WebError("the search engine returned no usable results (it may refuse automated requests: use --search-url with your own SearXNG)")
+    c.execute("INSERT OR REPLACE INTO lookups (query, results) VALUES (?,?)", (q, json.dumps(res)))
+    c.commit()
+    return res
+
+
+def model_tokens(d, ev, local):
+    """Model-like words (letters and digits, 5+ characters) from names and banners: not hex strings, not the tail of the MAC."""
+    tail = re.sub(r"[^0-9a-f]", "", d["mac"].lower())
+    texts = ev.get("rdns", []) + ev.get("mdns_host", []) + [s for s in ev.get("ssdp", []) if s.startswith("model: ")] + ev.get("md", [])
+    toks = [w for t in texts for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{4,}", t)
+            if re.search(r"[A-Za-z]", w) and re.search(r"\d", w) and not re.fullmatch(r"[0-9a-fA-F]+", w) and not w.lower().endswith((tail[-4:], tail[-6:]))]
+    if local and local[0]["model"]:
+        toks.append(local[0]["model"])
+    return sorted(dict.fromkeys(toks), key=lambda w: -len(w))[:2]
+
+
+def web_candidates(c, d, ev, local):
+    """([candidate], status): search the model words with the vendor and count the results that mention them."""
+    vendor = (local[0]["vendor"] if local else "") or oui_vendor(c, d["mac"])[0]
+    toks = model_tokens(d, ev, local)
+    if not toks:
+        return [], "nodata"
+    out = []
+    for tok in toks:
+        res = web_lookup(c, f"{vendor} {tok}".strip())
+        rel = [r for r in res if tok.lower() in (r["title"] + " " + r["snippet"]).lower()][:3]
+        if rel:
+            v = vendor.split()[0].lower() if vendor else ""
+            score = len(rel) + (1 if v and any(v in (r["title"] + " " + r["snippet"]).lower() for r in rel) else 0)
+            out.append({"vendor": vendor, "type": local[0]["type"] if local else "", "model": tok, "score": score, "confidence": conf(score),
+                        "why": [f"web: {len(rel)} results mention {tok}"], "links": [{"title": r["title"][:90], "url": r["url"]} for r in rel]})
+    return out, "ok"
+
+
+def identify_devices(c, devs, web):
+    """Fresh LAN evidence (mDNS, SSDP, ports, banners), local candidates, then the web if asked. The inventory is not changed."""
+    collect_lan(c)
+    sp = scan_ports(c)
+
+    def probe_one(d):
+        try:
+            ports = d["ports"] if d["scanned_at"] else scan(d["ip"], sp)
+            return ports, banners(d["ip"], ports), socket.gethostbyaddr(d["ip"])[0]
+        except socket.herror:
+            return d["ports"], banners(d["ip"], d["ports"]), ""
+        except (OSError, subprocess.TimeoutExpired):  # nmap missing or the device does not answer
+            return d["ports"], [], ""
+    with ThreadPoolExecutor(8) as ex:
+        probed = list(ex.map(probe_one, devs))
+    res, web_down = [], ""
+    for d, (ports, ban, host) in zip(devs, probed):
+        if not d["scanned_at"] and ports:
+            c.execute("UPDATE devices SET ports=?, scanned_at=datetime('now','localtime') WHERE id=?", (ports, d["id"]))
+        store_banners(c, d["id"], ban)
+        if host:
+            store_evidence(c, d["id"], "rdns", [host])
+        d = dict(c.execute("SELECT * FROM devices WHERE id=?", (d["id"],)).fetchone())
+        ev, local, status = evidence(c, d["id"]), identify_local(c, d), "off"
+        if web and web_down:
+            status = web_down
+        elif web:
+            try:
+                found, status = web_candidates(c, d, ev, local)
+                for w in found:
+                    m = next((x for x in local if x["vendor"].lower() == w["vendor"].lower() and (not x["model"] or x["model"].lower() == w["model"].lower())), None)
+                    if m:
+                        m["score"] += w["score"]
+                        m["model"], m["confidence"], m["links"] = m["model"] or w["model"], conf(m["score"]), w["links"]
+                        m["why"] += w["why"]
+                    else:
+                        local.append(w)
+                local.sort(key=lambda x: -x["score"])
+            except WebError as e:  # the engine refused or is down: do not ask it again for every device
+                status = web_down = "unavailable: " + str(e)
+        res.append({"id": d["id"], "name": d["name"], "model": d["model"], "web": status, "candidates": local[:3]})
+    c.commit()
+    return res
+
+
 COLUMNS = {"name": ("name", "nome", "hostname", "host name", "device"), "ip": ("ip", "ip address", "address", "ipv4"),
-           "mac": ("mac", "mac address", "hardware address", "mac_address"), "vendor": ("vendor", "produttore", "manufacturer"),
+           "mac": ("mac", "mac address", "hardware address", "mac_address"), "vendor": ("vendor", "produttore", "manufacturer"), "model": ("model", "modello"),
            "type": ("type", "tipo", "category", "categoria"), "notes": ("notes", "note"),
            "reserved": ("ip assignment", "assegnazione ip", "assignment", "reserved")}
 ASSIGN_IN = {"0": 0, "dynamic": 0, "dinamico": 0, "1": 1, "reservation": 1, "2": 2, "static": 2, "fisso": 2, "fixed": 2}
@@ -468,7 +920,7 @@ def import_rows(c, text):
             skipped += 1
             continue
         added += add_new(c, r.get("name", "")[:60], ip, mac, r.get("vendor", "")[:60], keys.get(r.get("type", "").lower(), ""),
-                         r.get("notes", "")[:200], ASSIGN_IN.get(r.get("reserved", "").lower(), 0))
+                         r.get("notes", "")[:200], ASSIGN_IN.get(r.get("reserved", "").lower(), 0), r.get("model", "")[:80])
     c.commit()
     return {"read": len(rows), "added": added, "skipped": skipped}
 
@@ -558,6 +1010,7 @@ def clean(data):
     if r["ip"]:
         ipaddress.IPv4Address(r["ip"])
     r["color"] = r["color"].lower()
+    r["model"] = r["model"][:80]
     check_look(r["icon"], r["color"])
     return r
 
@@ -600,7 +1053,7 @@ class H(BaseHTTPRequestHandler):
             if has_login and path not in PUBLIC and not self.user():
                 return self.send(401, {"error": "login required"})
             if method == "GET" and path == "/api/session":
-                return self.send(200, {"login": has_login, "user": self.user(), "first": not c.execute("SELECT 1 FROM meta WHERE key='discovered'").fetchone()})
+                return self.send(200, {"login": has_login, "user": self.user(), "web": not NO_WEB, "first": not c.execute("SELECT 1 FROM meta WHERE key='discovered'").fetchone()})
             if method == "POST" and path == "/api/login":
                 ip, (n, until) = self.client_address[0], FAILS.get(self.client_address[0], (0, 0))
                 if until > time.time():
@@ -647,13 +1100,21 @@ class H(BaseHTTPRequestHandler):
                 if not devs:
                     return self.send(404, {"error": "device has no IP or does not exist"})
                 with ThreadPoolExecutor(8) as ex:  # sqlite: threads read, the main thread writes
-                    found = list(ex.map(lambda d: scan(d["ip"], ports), devs))
+                    found = list(ex.map(lambda d: scan_one(d["ip"], ports), devs))
                 res = []
-                for d, ports in zip(devs, found):
-                    c.execute("UPDATE devices SET ports=?, scanned_at=datetime('now','localtime') WHERE id=?", (ports, d["id"]))
+                for d, (open_ports, ban) in zip(devs, found):
+                    c.execute("UPDATE devices SET ports=?, scanned_at=datetime('now','localtime') WHERE id=?", (open_ports, d["id"]))
+                    store_banners(c, d["id"], ban)
                     res.append(dict(c.execute("SELECT id, ports, scanned_at FROM devices WHERE id=?", (d["id"],)).fetchone()))
                 c.commit()
                 return self.send(200, res)
+            if method == "POST" and (path == "/api/identify" or re.fullmatch(r"/api/devices/\d+/identify", path)):
+                b = self.body()
+                ids = [int(i) for i in b.get("ids", [])][:40] if path == "/api/identify" else [int(path.split("/")[3])]
+                devs = [dict(r) for r in c.execute(f"SELECT * FROM devices WHERE ip != '' AND id IN ({','.join('?' * len(ids))})", ids)]
+                if not devs:
+                    return self.send(404, {"error": "device has no IP or does not exist"})
+                return self.send(200, identify_devices(c, devs, bool(b.get("web")) and not NO_WEB))
             if path == "/api/ports" and method in ("GET", "PUT"):
                 if method == "PUT":
                     p = clean_ports(self.body().get("ports", ""))
@@ -764,11 +1225,11 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, devices_with_status(c))
             if method == "POST" and not did:
                 r = check_type(c, clean(self.body()))
-                c.execute("INSERT INTO devices (name,ip,mac,vendor,type,notes,reserved,icon,color) VALUES (:name,:ip,:mac,:vendor,:type,:notes,:reserved,:icon,:color)", r)
+                c.execute("INSERT INTO devices (name,ip,mac,vendor,model,type,notes,reserved,icon,color) VALUES (:name,:ip,:mac,:vendor,:model,:type,:notes,:reserved,:icon,:color)", r)
             elif method == "PUT" and did:
                 b = self.body()
                 r = check_type(c, clean(b))
-                c.execute("UPDATE devices SET name=:name,ip=:ip,mac=:mac,vendor=:vendor,type=:type,notes=:notes,reserved=:reserved,icon=:icon,color=:color WHERE id=:id", {**r, "id": did})
+                c.execute("UPDATE devices SET name=:name,ip=:ip,mac=:mac,vendor=:vendor,model=:model,type=:type,notes=:notes,reserved=:reserved,icon=:icon,color=:color WHERE id=:id", {**r, "id": did})
                 if b.get("family"):  # forced: also replaces a look the others already have
                     # category too: an empty icon or color means "the category one", so the others must share it
                     others = family(c, did)[1]
@@ -777,6 +1238,7 @@ class H(BaseHTTPRequestHandler):
                     return self.send(200, {"ok": True, "family": len(others)})
             elif method == "DELETE" and did:
                 c.execute("DELETE FROM devices WHERE id=?", (did,))
+                c.execute("DELETE FROM evidence WHERE device_id=?", (did,))
             else:
                 return self.send(405, {"error": "method not allowed"})
             c.commit()
@@ -809,11 +1271,13 @@ if __name__ == "__main__":
     ap.add_argument("--db", default=os.environ.get("LANTERN_DB", DB), help="SQLite file (default: lantern.db next to app.py, or $LANTERN_DB)")
     ap.add_argument("--subnet", action="append", default=[n for n in os.environ.get("LANTERN_SUBNET", "").replace(",", " ").split()], metavar="CIDR", help="subnet to sweep, repeatable (default: detected, or $LANTERN_SUBNET, space or comma separated; at most a /22 each)")
     ap.add_argument("--no-discover", action="store_true", default=os.environ.get("LANTERN_NO_DISCOVER", "").lower() in ("1", "true", "yes"), help="do not discover devices on first start ($LANTERN_NO_DISCOVER=1)")
+    ap.add_argument("--no-web", action="store_true", default=os.environ.get("LANTERN_NO_WEB", "").lower() in ("1", "true", "yes"), help="never search the web to identify devices, and hide the button (=1)")
+    ap.add_argument("--search-url", default=os.environ.get("LANTERN_SEARCH_URL") or SEARCH_URL, metavar="URL", help="search page used to identify devices, {q} is the query: HTML (DuckDuckGo) or JSON (SearXNG) (or )")
     ap.add_argument("--set-password", metavar="USER", help="create or replace the login user (asks for the password), then exit")
     ap.add_argument("--disable-login", action="store_true", help="remove the login user, then exit (lost password)")
     ap.add_argument("--version", action="version", version=f"LANtern {VERSION}")
     a = ap.parse_args()
-    DB, SUBNETS, AUTO_DISCOVER = Path(a.db), a.subnet, not a.no_discover
+    DB, SUBNETS, AUTO_DISCOVER, NO_WEB, SEARCH_URL = Path(a.db), a.subnet, not a.no_discover, a.no_web, a.search_url
     LOOPBACK = a.host in ("127.0.0.1", "localhost", "::1")
     if a.set_password:
         pw = getpass.getpass("Password: ")

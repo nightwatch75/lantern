@@ -4,18 +4,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import app
 
-u, h = app.engine_request({"engine": "searxng", "url": "http://10.0.0.5:8888/search/", "cx": "", "key": ""}, "a b")
+u, h = app.engine_request({"engine": "searxng", "url": "http://10.0.0.5:8888/search/", "key": ""}, "a b")
 assert u == "http://10.0.0.5:8888/search?q=a+b&format=json", u
-assert app.engine_request({"engine": "searxng", "url": "http://x:1", "cx": "", "key": ""}, "q")[0] == "http://x:1/search?q=q&format=json"
-u, h = app.engine_request({"engine": "google", "url": "", "cx": "CX1", "key": "K&1"}, "pi")
-assert "key=K%261&cx=CX1&q=pi" in u and h == {}, u
-u, h = app.engine_request({"engine": "brave", "url": "", "cx": "", "key": "TOK"}, "pi")
+assert app.engine_request({"engine": "searxng", "url": "http://x:1", "key": ""}, "q")[0] == "http://x:1/search?q=q&format=json"
+u, h = app.engine_request({"engine": "brave", "url": "", "key": "TOK"}, "pi")
 assert h["X-Subscription-Token"] == "TOK" and "q=pi" in u
-assert app.engine_request({"engine": "custom", "url": "https://s/?q={q}", "cx": "", "key": ""}, "a b")[0] == "https://s/?q=a+b"
-assert app.engine_request({"engine": "ddg", "url": "ignored", "cx": "", "key": ""}, "x")[0].startswith("https://html.duckduckgo.com/")
+assert app.engine_request({"engine": "custom", "url": "https://s/?q={q}", "key": ""}, "a b")[0] == "https://s/?q=a+b"
+assert app.engine_request({"engine": "ddg", "url": "ignored", "key": ""}, "x")[0].startswith("https://html.duckduckgo.com/")
 
-g = json.dumps({"items": [{"title": "T", "link": "https://g/1", "snippet": "S"}]})
-assert app.parse_results(g) == [{"title": "T", "url": "https://g/1", "snippet": "S"}]
 b = json.dumps({"web": {"results": [{"title": "T", "url": "https://b/1", "description": "D"}]}})
 assert app.parse_results(b) == [{"title": "T", "url": "https://b/1", "snippet": "D"}]
 assert app.parse_results(json.dumps({"results": [{"title": "T", "url": "u", "content": "C"}]}))[0]["snippet"] == "C"
@@ -24,11 +20,11 @@ with tempfile.TemporaryDirectory() as d:
     app.DB = Path(d) / "lantern.db"
     with contextlib.closing(app.db()) as c:
         assert app.engine_conf(c)["engine"] == "ddg"
-        c.execute("INSERT INTO meta VALUES ('search_engine','google'),('search_key','SECRET'),('search_cx','c')")
+        c.execute("INSERT INTO meta VALUES ('search_engine','brave'),('search_key','SECRET')")
         c.commit()
         assert app.engine_conf(c)["key"] == "SECRET"
         try:
-            app.web_lookup(c, "x", {"engine": "brave", "url": "", "cx": "", "key": ""})
+            app.web_lookup(c, "x", {"engine": "brave", "url": "", "key": ""})
             raise SystemExit("no key must fail")
         except app.WebError:
             pass

@@ -1,0 +1,8 @@
+# SearXNG for LANtern (docker compose --profile searxng up -d). Private instance on 127.0.0.1:8888.
+use_default_settings: true
+server:
+  limiter: false          # one user: the LANtern host
+  image_proxy: false
+  # secret_key comes from SEARXNG_SECRET (.env)
+search:
+  formats: [html, json]   # LANtern reads the JSON answer

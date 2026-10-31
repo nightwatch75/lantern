@@ -166,6 +166,7 @@ def bk_new(note=""):
     with contextlib.closing(c), contextlib.closing(sqlite3.connect(p)) as dst:
         c.backup(dst)  # consistent copy while the app runs
         dst.execute("DROP TABLE users")
+        dst.execute("DELETE FROM meta WHERE key IN (?)", SECRET_META)
         dst.commit()
         dst.execute("VACUUM")
     bk_note(p, note)
@@ -183,6 +184,7 @@ def bk_import(data, note=""):
             if not {"devices", "categories"} <= tables or x.execute("PRAGMA quick_check").fetchone()[0] != "ok":
                 raise ValueError("not a LANtern database")
             x.execute("DROP TABLE IF EXISTS users")  # a foreign file must not carry a login into the history
+            x.execute("DELETE FROM meta WHERE key IN (?)", SECRET_META)
             x.commit()
             x.execute("VACUUM")
     except (sqlite3.Error, ValueError):
@@ -199,6 +201,7 @@ def bk_restore(name):
     c = db()
     with contextlib.closing(c):
         c.execute("ATTACH DATABASE ? AS bk", (str(p),))
+        keep = c.execute("SELECT key, value FROM main.meta WHERE key IN (?)", SECRET_META).fetchall()
         try:
             for t in BK_TABLES:
                 have = {r[1] for r in c.execute(f"PRAGMA bk.table_info({t})")}  # a backup from an older version may lack columns
@@ -206,6 +209,7 @@ def bk_restore(name):
                 c.execute(f"DELETE FROM main.{t}")  # also when an older backup lacks the table: its state had none
                 if cols:
                     c.execute(f"INSERT INTO main.{t} ({cols}) SELECT {cols} FROM bk.{t}")
+            c.executemany("INSERT OR REPLACE INTO meta VALUES (?,?)", keep)  # the restore does not touch the API key
             c.commit()
         except sqlite3.Error:
             c.rollback()
@@ -437,7 +441,10 @@ def discover(c):
 # ---- identification: evidence from the LAN + the public fingerprints.json + an optional web search ----
 FP_FILE = DIR / "fingerprints.json"
 NO_WEB = False  # --no-web
-SEARCH_URL = "https://html.duckduckgo.com/html/?q={q}"  # --search-url: any HTML or JSON (SearXNG) search page
+DEFAULT_SEARCH = SEARCH_URL = "https://html.duckduckgo.com/html/?q={q}"  # --search-url: any HTML or JSON (SearXNG) search page
+SEARXNG_URL = "http://127.0.0.1:8888"  # the SearXNG of compose.yaml
+ENGINES = ("ddg", "searxng", "google", "brave", "custom")
+SECRET_META = ("search_key",)  # never in a backup
 MDNS_TYPES = ("_hap._tcp", "_spotify-connect._tcp", "_matter._tcp", "_googlecast._tcp", "_airplay._tcp", "_raop._tcp",
               "_companion-link._tcp", "_http._tcp", "_ipp._tcp", "_printer._tcp", "_smb._tcp", "_device-info._tcp",
               "_workstation._tcp", "_amzn-wplay._tcp", "_sonos._tcp", "_hue._tcp", "_esphomelib._tcp", "_shelly._tcp",
@@ -765,9 +772,11 @@ def auto_identify(c, ids):
 
 
 def parse_results(body):
-    """[{title, url, snippet}] from a SearXNG JSON answer or a DuckDuckGo-style HTML page."""
+    """[{title, url, snippet}] from a JSON answer (SearXNG, Google, Brave) or a DuckDuckGo-style HTML page."""
     if body.lstrip().startswith("{"):
-        return [{"title": r.get("title", ""), "url": r.get("url", ""), "snippet": r.get("content", "")} for r in json.loads(body).get("results", [])[:10]]
+        j = json.loads(body)
+        rows = j.get("results") or j.get("items") or (j.get("web") or {}).get("results") or []
+        return [{"title": r.get("title", ""), "url": r.get("url") or r.get("link", ""), "snippet": r.get("content") or r.get("snippet") or r.get("description", "")} for r in rows[:10]]
     plain = lambda t: html.unescape(re.sub(r"<[^>]+>", "", t)).strip()
     out = []
     for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>(.*?)(?=<a[^>]+class="result__a"|\Z)', body, re.S):
@@ -777,17 +786,40 @@ def parse_results(body):
     return out[:10]
 
 
-def web_lookup(c, q):
-    """Search results for q, from the cache (30 days) or the search engine. Honest User-Agent: a refusal is reported, not worked around."""
-    row = c.execute("SELECT results FROM lookups WHERE query=? AND fetched_at > datetime('now','-30 days')", (q,)).fetchone()
+def engine_conf(c):
+    """The search engine setting: meta rows, else --search-url (custom), else DuckDuckGo."""
+    m = dict(c.execute("SELECT key, value FROM meta WHERE key LIKE 'search_%'"))
+    e = m.get("search_engine") or ("custom" if SEARCH_URL != DEFAULT_SEARCH else "ddg")
+    return {"engine": e if e in ENGINES else "ddg", "url": m.get("search_url") or (SEARCH_URL if e == "custom" else SEARXNG_URL), "cx": m.get("search_cx", ""), "key": m.get("search_key", "")}
+
+
+def engine_request(cf, q):
+    """(url, headers) for the query q."""
+    e, qq = cf["engine"], urllib.parse.quote_plus(q)
+    if e == "searxng":
+        return re.sub(r"(/search)?/?$", "", cf["url"].strip()) + f"/search?q={qq}&format=json", {}
+    if e == "google":
+        return f"https://www.googleapis.com/customsearch/v1?key={urllib.parse.quote(cf['key'])}&cx={urllib.parse.quote(cf['cx'])}&q={qq}&num=10", {}
+    if e == "brave":
+        return f"https://api.search.brave.com/res/v1/web/search?q={qq}&count=10", {"X-Subscription-Token": cf["key"], "Accept": "application/json"}
+    return (cf["url"] if e == "custom" else DEFAULT_SEARCH).replace("{q}", qq), {}
+
+
+def web_lookup(c, q, cf=None):
+    """Search results for q, from the cache (30 days) or the search engine. Honest User-Agent: a refusal is reported, not worked around.
+    cf: a setting to try without the cache (the Test button)."""
+    row = None if cf else c.execute("SELECT results FROM lookups WHERE query=? AND fetched_at > datetime('now','-30 days')", (q,)).fetchone()
     if row:
         return json.loads(row[0])
-    url = SEARCH_URL.replace("{q}", urllib.parse.quote_plus(q))
+    cf = cf or engine_conf(c)
+    if cf["engine"] in ("google", "brave") and not cf["key"] or cf["engine"] == "google" and not cf["cx"]:
+        raise WebError("this search engine needs an API key" + (" and a search engine id (cx)" if cf["engine"] == "google" else ""))
+    url, hdr = engine_request(cf, q)
     if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
         raise WebError("the search URL must be http or https")
     time.sleep(1)  # one request a second at most
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": f"LANtern/{VERSION} (+https://github.com/nightwatch75/lantern)"}), timeout=8) as r:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": f"LANtern/{VERSION} (+https://github.com/nightwatch75/lantern)", **hdr}), timeout=8) as r:
             status, body = r.status, r.read(500000).decode(errors="replace")
     except OSError as e:
         raise WebError(f"search failed: {e}")
@@ -796,9 +828,10 @@ def web_lookup(c, q):
     except ValueError:
         res = []
     if not res:
-        raise WebError("the search engine returned no usable results (it may refuse automated requests: use --search-url with your own SearXNG)")
-    c.execute("INSERT OR REPLACE INTO lookups (query, results) VALUES (?,?)", (q, json.dumps(res)))
-    c.commit()
+        raise WebError("the search engine returned no usable results (it may refuse automated requests: choose another engine, like your own SearXNG)")
+    if not cf.get("test"):
+        c.execute("INSERT OR REPLACE INTO lookups (query, results) VALUES (?,?)", (q, json.dumps(res)))
+        c.commit()
     return res
 
 
@@ -1115,6 +1148,31 @@ class H(BaseHTTPRequestHandler):
                 if not devs:
                     return self.send(404, {"error": "device has no IP or does not exist"})
                 return self.send(200, identify_devices(c, devs, bool(b.get("web")) and not NO_WEB))
+            if path == "/api/search" and method in ("GET", "PUT"):
+                if method == "PUT":
+                    b = self.body()
+                    e = str(b.get("engine", ""))
+                    if e not in ENGINES:
+                        return self.send(400, {"error": "unknown search engine"})
+                    rows = {"search_engine": e, "search_url": str(b.get("url", "")).strip()[:500], "search_cx": str(b.get("cx", "")).strip()[:200]}
+                    if b.get("key"):  # absent or empty: keep the saved key
+                        rows["search_key"] = str(b["key"]).strip()[:500]
+                    for k, v in rows.items():
+                        c.execute("INSERT OR REPLACE INTO meta VALUES (?,?)", (k, v))
+                    c.commit()
+                cf = engine_conf(c)
+                return self.send(200, {"engine": cf["engine"], "url": cf["url"], "cx": cf["cx"], "has_key": bool(cf["key"]), "searxng": SEARXNG_URL, "web": not NO_WEB})
+            if path == "/api/search/test" and method == "POST":
+                b = self.body()
+                cf = engine_conf(c)
+                cf = {"engine": str(b.get("engine", "")), "url": str(b.get("url", "")).strip(), "cx": str(b.get("cx", "")).strip(), "key": str(b.get("key") or cf["key"]).strip(), "test": True}
+                if cf["engine"] not in ENGINES:
+                    return self.send(400, {"error": "unknown search engine"})
+                try:
+                    res = web_lookup(c, "Raspberry Pi 4 Model B", cf)
+                except WebError as e:
+                    return self.send(200, {"ok": False, "error": str(e)})
+                return self.send(200, {"ok": True, "n": len(res), "first": res[0]["title"][:90]})
             if path == "/api/ports" and method in ("GET", "PUT"):
                 if method == "PUT":
                     p = clean_ports(self.body().get("ports", ""))

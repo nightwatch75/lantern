@@ -16,5 +16,21 @@ services:
     cap_add: [NET_RAW]  # ping
     security_opt: ["no-new-privileges:true"]
 
+  # Optional search engine for the Identify button: docker compose --profile searxng up -d
+  # Then in LANtern: user menu > Search engine > SearXNG (http://127.0.0.1:8888, the default).
+  searxng:
+    image: searxng/searxng:latest
+    container_name: lantern-searxng
+    profiles: [searxng]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"  # only this machine, LANtern runs on the host network
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-lantern-change-me}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
 volumes:
   lantern-data:

@@ -23,6 +23,17 @@ Python standard library only. Optional login, no cloud, one SQLite file.</p>
 - CSV and Excel export. Import from a CSV (LANtern's own export works as a backup) or an nmap XML (`nmap -sn -oX`). Known MACs are never overwritten.
 - 30 themes in one menu: Classic Light and Classic Dark first (the default follows your OS), then Ayu, Catppuccin, Dracula, Nord, Tokyo Night, Kanagawa and more, each with a light variant when it has one. Font size (with reset), Italian and English (flag in the top bar).
 
+## How identification works
+
+A fixed set of rules, no AI and no model that learns. Same evidence, same answer.
+
+1. **Evidence.** Collected on your LAN: reverse DNS and mDNS host names, mDNS service types and model keys, the SSDP device description, the MAC vendor (OUI), open ports, SSH and HTTP banners, page titles, the RTSP realm. Stored per device. A device that publishes nothing gives nothing to match.
+2. **Local score.** Each entry of `fingerprints.json` (a public table, no data of any LAN) has a weight `w` from 1 to 3 and matches only when all its keys hit: a host name pattern (3), an mDNS model (3), an SSDP model (2), a port set (2), a bare OUI (1). The weights of the entries that agree on a vendor are summed. When the MAC vendor agrees with the vendor found, one point is added, once. Hits without a vendor (a page title like "Pi-hole") join the vendor of the same category.
+3. **Confidence.** From the final score: **high** at 4 or more, **medium** at 2 or 3, **low** below. Medium and high results are applied by themselves only to a *new* device found by Discover, and only to model, vendor and category. Everything else is a suggestion that you apply by hand.
+4. **Web, only with the globe button.** After the fresh LAN evidence, the model codes found (letters and digits, not hex strings, not the end of the MAC) are searched as `vendor code`. A result counts when its title or snippet mentions the code: the score is the number of such results (at most 3), plus 1 if one of them also mentions the vendor. Same thresholds. The links are shown so you can check. Answers are cached for 30 days, one request per second at most. Only vendor and code (or host name) leave your LAN, never the MAC or the IP.
+
+**Search engine.** The web step needs a search engine, chosen in the user menu: DuckDuckGo, Google, Brave, a custom URL, or **SearXNG**. SearXNG is a metasearch engine you run yourself: it asks many engines at once (Google, Bing, DuckDuckGo, Brave and others), merges the answers and returns them as JSON, with no API key. Fewer refusals than a single engine, and your LAN is never seen by them, only your IP is. `docker compose --profile searxng up -d` starts one for LANtern.
+
 ## Run
 
 ```

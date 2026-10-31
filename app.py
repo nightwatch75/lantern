@@ -8,7 +8,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "0.8.2"
+VERSION = "0.8.3"
 DIR = Path(__file__).parent
 DB = Path(os.environ.get("LANTERN_DB", DIR / "lantern.db"))  # --db overrides
 WIN = os.name == "nt"
@@ -53,6 +53,7 @@ RULES = [("vendor", "raspberry", "sbc"), ("vendor", "synology", "nas"), ("vendor
 def db():
     c = sqlite3.connect(DB)
     c.row_factory = sqlite3.Row
+    new = not c.execute("SELECT 1 FROM sqlite_master WHERE name='devices'").fetchone()
     c.execute("""CREATE TABLE IF NOT EXISTS devices (id INTEGER PRIMARY KEY, name TEXT NOT NULL,
         ip TEXT NOT NULL DEFAULT '', mac TEXT NOT NULL UNIQUE, vendor TEXT NOT NULL DEFAULT '',
         type TEXT NOT NULL DEFAULT 'iot', notes TEXT NOT NULL DEFAULT '', reserved INTEGER NOT NULL DEFAULT 0)""")
@@ -63,6 +64,8 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, hash TEXT NOT NULL)")
     c.execute("CREATE TABLE IF NOT EXISTS oui (prefix TEXT PRIMARY KEY, vendor TEXT NOT NULL)")
     c.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    if new:  # until the first discovery (meta 'discovered') the page runs one by itself
+        c.execute("INSERT OR IGNORE INTO meta VALUES ('fresh', '1')")
     c.execute("CREATE TABLE IF NOT EXISTS rules (id INTEGER PRIMARY KEY, field TEXT NOT NULL, pattern TEXT NOT NULL, category TEXT NOT NULL)")
     if not c.execute("SELECT 1 FROM rules").fetchone():
         c.executemany("INSERT INTO rules (field,pattern,category) VALUES (?,?,?)", RULES)
@@ -74,8 +77,11 @@ def db():
     for col in ("ports", "scanned_at", "icon", "color"):  # migration from versions without these columns
         if col not in [r[1] for r in c.execute("PRAGMA table_info(devices)")]:
             c.execute(f"ALTER TABLE devices ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
-    if not c.execute("SELECT 1 FROM devices").fetchone():
+    if not c.execute("SELECT 1 FROM devices").fetchone():  # new database: the seed does not count as a discovery
         c.executemany("INSERT INTO devices (name,ip,mac,vendor,type,notes,reserved) VALUES (?,?,?,?,?,?,?)", json.loads(SEED_FILE.read_text()) if SEED_FILE.exists() else [])
+        c.commit()
+    elif not c.execute("SELECT 1 FROM meta WHERE key IN ('discovered', 'fresh')").fetchone():  # database of an older version: no first-run discovery
+        c.execute("INSERT INTO meta VALUES ('discovered', 'before 0.8.3')")
         c.commit()
     return c
 
@@ -594,7 +600,7 @@ class H(BaseHTTPRequestHandler):
             if has_login and path not in PUBLIC and not self.user():
                 return self.send(401, {"error": "login required"})
             if method == "GET" and path == "/api/session":
-                return self.send(200, {"login": has_login, "user": self.user()})
+                return self.send(200, {"login": has_login, "user": self.user(), "first": not c.execute("SELECT 1 FROM meta WHERE key='discovered'").fetchone()})
             if method == "POST" and path == "/api/login":
                 ip, (n, until) = self.client_address[0], FAILS.get(self.client_address[0], (0, 0))
                 if until > time.time():
@@ -695,7 +701,10 @@ class H(BaseHTTPRequestHandler):
             if method == "POST" and path == "/api/import":
                 return self.send(200, import_rows(db(), str(self.body().get("text", ""))))
             if method == "POST" and path == "/api/discover":
-                return self.send(200, discover(db()))
+                res = discover(c)
+                c.execute("INSERT OR REPLACE INTO meta VALUES ('discovered', datetime('now','localtime'))")
+                c.commit()
+                return self.send(200, res)
             if method == "POST" and path == "/api/suggest":
                 b = self.body()
                 return self.send(200, suggest(db(), str(b.get("mac", "")), str(b.get("name", "")), str(b.get("ports", ""))))

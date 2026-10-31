@@ -34,7 +34,7 @@ main{max-width:1800px;margin:0 auto;padding:16px}
 .stat b{display:block;font-size:28px;font-weight:500}.stat span{color:var(--on2)}
 .stat.ok b{color:var(--ok)}.stat.bad b{color:var(--bad)}.stat.warn b{color:var(--warn)}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-.search{margin:0;flex:1;min-width:200px;display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:28px;padding:0 16px;height:44px;color:var(--on2)}
+.sbar{flex-wrap:nowrap;justify-content:center}.search{margin:0;flex:0 1 420px;min-width:0;display:flex;align-items:center;gap:4px;background:var(--surface2);border-radius:28px;padding:0 6px 0 16px;height:38px;color:var(--on2)}.search .icon-btn{width:28px;height:28px;flex:none}.icon-btn.go{background:var(--primary);color:var(--on-primary);width:38px;height:38px;flex:none}
 .search input{flex:1;padding:0;margin:0;width:auto;border:0;background:none;color:var(--on);font:inherit;outline:0}
 .chip{border:1px solid var(--line);background:none;color:var(--on);border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer}
 .chip{color:var(--on);text-decoration:none;display:inline-flex;align-items:center;gap:6px}.chip svg.i{width:1.3em;height:1.3em}.chip small{color:var(--on2)}
@@ -108,7 +108,7 @@ label input:focus,label select:focus,label textarea:focus{outline:2px solid var(
 .menu.themes{min-width:19em;max-height:min(70vh,32em);overflow-y:auto}.menu.themes button{justify-content:space-between;white-space:nowrap}svg.sw{width:86px;height:22px;flex:none}#theme{width:auto;padding:0 6px}#theme svg.sw{width:62px;height:16px}
 .hl,.hr{display:flex;align-items:center;gap:4px 8px;flex-wrap:wrap}.hr{margin-left:auto}.hl .menu{left:0;right:auto}
 .menu button,.menu a{text-decoration:none;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--on);padding:8px 10px;border-radius:8px;font:inherit;cursor:pointer}
-.menu button:hover,.menu a:hover,.menu button[aria-pressed=true]{background:var(--surface2)}.menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}#umenu{min-width:17em}.menu [hidden]{display:none}
+.menu button:hover,.menu a:hover,.menu button[aria-pressed=true]{background:var(--surface2)}.menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}#umenu{min-width:17em}.menu [hidden],.search [hidden]{display:none}
 @media (max-width:700px){header{position:static;padding:8px 12px}header h1{flex:1 1 100%;font-size:1.2em}.hl,.hr{flex:1 1 100%;justify-content:space-between}.hl{justify-content:flex-start}#ts{display:none}.hr .chip{padding:6px 10px}.stats{grid-template-columns:repeat(3,1fr);gap:8px}.stat{padding:8px 10px;border-radius:12px}.stat b{font-size:22px}.stat span{font-size:.8em}main{padding-bottom:84px}.fab{right:16px;bottom:16px;padding:0 16px}.fab span{display:none}}
 .flag{width:2em;height:1.4em;border-radius:3px;box-shadow:0 0 0 1px var(--line);display:block}
 header h1 small{font-size:.5em;font-weight:400;color:var(--on2);margin-left:6px}
@@ -140,6 +140,7 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
     <button class="icon-btn fs" id="fsm" data-it="fs.m">A-</button>
     <button class="icon-btn fs" id="fsp" data-it="fs.p">A+</button>
     <button class="icon-btn fs" id="fsr" data-it="fs.r">↺</button>
+    <div class="lang"><button class="icon-btn" id="langbtn" data-it="lang"></button><div class="menu" id="lmenu" hidden></div></div>
   </div>
   <div class="hr">
     <button class="chip" id="discover" data-it="disc.t"><svg class="i" viewBox="0 0 24 24"><use href="#i-radar"/></svg><span class="lbl" data-i="disc"></span></button>
@@ -158,14 +159,14 @@ header h1 .ver{font-size:.45em;font-weight:400;color:var(--on2);border:1px solid
         <button id="acct"><svg class="i" viewBox="0 0 24 24"><use href="#i-user"/></svg><span data-i="um.acct"></span></button>
         <button id="mout" hidden><svg class="i" viewBox="0 0 24 24"><use href="#i-logout"/></svg><span data-i="acct.out"></span></button>
       </div></div>
-    <div class="lang"><button class="icon-btn" id="langbtn" data-it="lang"></button><div class="menu" id="lmenu" hidden></div></div>
   </div>
 </header>
 <main>
   <div class="stats" id="stats"></div>
-  <div class="bar">
-    <label class="search"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg><input id="q" data-ip="search"></label>
-  </div>
+  <form class="bar sbar" id="sform" role="search">
+    <label class="search"><input id="q" type="text" autocomplete="off" data-ip="search"><button type="button" class="icon-btn" id="qx" hidden data-it="search.clear"><svg class="i" viewBox="0 0 24 24"><use href="#i-x"/></svg></button></label>
+    <button class="icon-btn go" id="qgo" data-it="search.go"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg></button>
+  </form>
   <div class="bar" id="types"></div>
   <div class="card"><table>
     <thead><tr id="head"></tr></thead><tbody id="rows"></tbody>
@@ -283,6 +284,7 @@ play:'<path d="M8 5l11 7-11 7z"/>',
 refresh:'<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v4h-4"/>',
 user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
 theme:'<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/>',
+x:'<path d="M6 6l12 12M18 6L6 18"/>',
 search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/>',
 plus:'<path d="M12 5v14M5 12h14"/>',
 edit:'<path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/>',
@@ -308,7 +310,7 @@ const L={
 it:{'fam.apply':'Applica categoria, icona e colore anche agli altri device di {v} ({n}); sostituisce il loro aspetto attuale','look.title':'Aspetto (icona e colore)','look.reset.dev':'Usa aspetto della categoria','color.custom':'Colore personalizzato','run.title':'Ricerca dei device in corso','run.sub':'Ping alla rete locale e lettura della tabella ARP. Servono alcuni secondi.','run.done':'Ricerca completata','run.fail':'Ricerca non riuscita','login.title':'Accesso','login.user':'Utente','login.pass':'Password','login.go':'Accedi','acct.title':'Account e login','acct.new':'Nuova password (almeno 8 caratteri)','acct.cur':'Password attuale','acct.off':'Disattiva login','acct.out':'Esci','acct.on':'Login attivo, utente: {u}','acct.none':'Login non attivo: chiunque raggiunga la pagina può usarla. Imposta utente e password.','acct.saved':'Login salvato','acct.off.confirm':'Disattivare il login?','theme.cl':'Classico chiaro','theme.cd':'Classico scuro','auto.pause':'Metti in pausa l\'aggiornamento automatico','auto.resume':'Riprendi l\'aggiornamento automatico','oui.urls':'URL del registro OUI, uno per riga (CSV IEEE o oui.txt). Vuoto = predefiniti','imp':'Importa','imp.t':'Importa device da CSV o nmap XML','imp.res':'Letti {r}, nuovi {a}, senza MAC {s}','disc':'Scopri','disc.t':'Cerca i device nella LAN e aggiungi quelli nuovi','disc.res':'Trovati {f} device, {a} nuovi','app.tag':'Il radar della tua LAN','scan.all':'Scansiona porte','scan.all.t':'Scansiona le porte di tutti i device online','scan.one':'Scansiona porte',
 'scan.confirm':'Scansionare le porte di {n} device online?','exp.csv':'Esporta CSV','exp.xlsx':'Esporta Excel','updated':'Aggiornato {t}','refresh':'Aggiorna',
 'fs.m':'Riduci testo','fs.p':'Ingrandisci testo','theme':'Tema','lang':'Lingua','search':'Cerca nome, IP, MAC, note',
-'fs.r':'Ripristina dimensione testo','um.title':'Menu utente','um.imp':'Importa device (CSV, nmap)','um.acct':'Accesso e password','pv':'Mostra porte','pv.t':'Mostra o nascondi le porte in ascolto (vista compatta)','pv.has':'Porte in ascolto: {p}','ports.btn':'Elenco porte','ports.btn.t':'Porte controllate dalla scansione','ports.title':'Porte controllate dalla scansione','ports.hint':'Porte TCP separate da virgola, intervalli con il trattino (esempio: 22,80,8000-8100). Vale dalla prossima scansione.','ports.reset':'Ripristina porte note','ports.info':'{n} porte (massimo {m}). {k}','ports.custom':'Elenco personalizzato.','ports.known':'Elenco delle porte note.',
+'fs.r':'Ripristina dimensione testo','search.clear':'Cancella il testo','search.go':'Cerca','um.title':'Menu utente','um.imp':'Importa device (CSV, nmap)','um.acct':'Accesso e password','pv':'Mostra porte','pv.t':'Mostra o nascondi le porte in ascolto (vista compatta)','pv.has':'Porte in ascolto: {p}','ports.btn':'Elenco porte','ports.btn.t':'Porte controllate dalla scansione','ports.title':'Porte controllate dalla scansione','ports.hint':'Porte TCP separate da virgola, intervalli con il trattino (esempio: 22,80,8000-8100). Vale dalla prossima scansione.','ports.reset':'Ripristina porte note','ports.info':'{n} porte (massimo {m}). {k}','ports.custom':'Elenco personalizzato.','ports.known':'Elenco delle porte note.',
 'bk.btn':'Backup','bk.btn.t':'Backup e ripristino del database','bk.title':'Backup e ripristino','bk.hint':'Copia di dispositivi, categorie, regole, OUI e impostazioni. L\'utenza di accesso non è inclusa. Cartella:','bk.note':'Nota per il nuovo backup','bk.new':'Crea backup','bk.import':'Importa file...','bk.empty':'Nessun backup.','bk.dl':'Scarica','bk.restore':'Ripristina','bk.restore.confirm':'Ripristinare il backup del {d}?\nI dati attuali vengono sostituiti. Prima si salva un backup automatico.','bk.del.confirm':'Eliminare il backup del {d}?','bk.saved':'Backup salvato','bk.done':'Backup ripristinato',
 'sort.type':'Ordina per tipo','sort.type.t':'Ordina per tipo (icona)','cats.btn':'Categorie','cats.btn.t':'Gestisci categorie','rules.btn':'Regole','rules.btn.t':'Regole di riconoscimento',
 'col.status':'Stato','col.name':'Nome','col.ip':'IP','col.mac':'MAC','col.vendor':'Produttore','col.type':'Tipo','col.assign':'Assegnazione IP','col.ports':'Porte in ascolto','col.notes':'Note',
@@ -328,7 +330,7 @@ it:{'fam.apply':'Applica categoria, icona e colore anche agli altri device di {v
 en:{'fam.apply':'Also apply category, icon and color to the other devices of {v} ({n}); replaces their current look','look.title':'Look (icon and color)','look.reset.dev':'Use the category look','color.custom':'Custom color','run.title':'Searching for devices','run.sub':'Pinging the local network and reading the ARP table. It takes a few seconds.','run.done':'Search complete','run.fail':'Search failed','login.title':'Sign in','login.user':'User','login.pass':'Password','login.go':'Sign in','acct.title':'Account and login','acct.new':'New password (at least 8 characters)','acct.cur':'Current password','acct.off':'Disable login','acct.out':'Sign out','acct.on':'Login is on, user: {u}','acct.none':'Login is off: anyone who reaches this page can use it. Set a user and a password.','acct.saved':'Login saved','acct.off.confirm':'Disable the login?','theme.cl':'Classic Light','theme.cd':'Classic Dark','auto.pause':'Pause auto-refresh','auto.resume':'Resume auto-refresh','oui.urls':'OUI registry URLs, one per line (IEEE CSV or oui.txt). Empty = defaults','imp':'Import','imp.t':'Import devices from CSV or nmap XML','imp.res':'Read {r}, new {a}, without MAC {s}','disc':'Discover','disc.t':'Find devices on the LAN and add the new ones','disc.res':'Found {f} devices, {a} new','app.tag':'The radar for your LAN','scan.all':'Scan ports','scan.all.t':'Scan ports of all online devices','scan.one':'Scan ports',
 'scan.confirm':'Scan ports of {n} online devices?','exp.csv':'Export CSV','exp.xlsx':'Export Excel','updated':'Updated {t}','refresh':'Refresh',
 'fs.m':'Smaller text','fs.p':'Larger text','theme':'Theme','lang':'Language','search':'Search name, IP, MAC, notes',
-'fs.r':'Reset text size','um.title':'User menu','um.imp':'Import devices (CSV, nmap)','um.acct':'Login and password','pv':'Show ports','pv.t':'Show or hide the listening ports (compact view)','pv.has':'Listening ports: {p}','ports.btn':'Port list','ports.btn.t':'Ports checked by the scan','ports.title':'Ports checked by the scan','ports.hint':'TCP ports separated by commas, ranges with a dash (example: 22,80,8000-8100). It applies from the next scan.','ports.reset':'Restore known ports','ports.info':'{n} ports (at most {m}). {k}','ports.custom':'Custom list.','ports.known':'Known ports list.',
+'fs.r':'Reset text size','search.clear':'Clear the text','search.go':'Search','um.title':'User menu','um.imp':'Import devices (CSV, nmap)','um.acct':'Login and password','pv':'Show ports','pv.t':'Show or hide the listening ports (compact view)','pv.has':'Listening ports: {p}','ports.btn':'Port list','ports.btn.t':'Ports checked by the scan','ports.title':'Ports checked by the scan','ports.hint':'TCP ports separated by commas, ranges with a dash (example: 22,80,8000-8100). It applies from the next scan.','ports.reset':'Restore known ports','ports.info':'{n} ports (at most {m}). {k}','ports.custom':'Custom list.','ports.known':'Known ports list.',
 'bk.btn':'Backup','bk.btn.t':'Database backup and restore','bk.title':'Backup and restore','bk.hint':'A copy of devices, categories, rules, OUI and settings. The login user is not included. Folder:','bk.note':'Note for the new backup','bk.new':'Create backup','bk.import':'Import file...','bk.empty':'No backups.','bk.dl':'Download','bk.restore':'Restore','bk.restore.confirm':'Restore the backup of {d}?\nCurrent data is replaced. An automatic backup is saved first.','bk.del.confirm':'Delete the backup of {d}?','bk.saved':'Backup saved','bk.done':'Backup restored',
 'sort.type':'Sort by type','sort.type.t':'Sort by type (icon)','cats.btn':'Categories','cats.btn.t':'Manage categories','rules.btn':'Rules','rules.btn.t':'Recognition rules',
 'col.status':'Status','col.name':'Name','col.ip':'IP','col.mac':'MAC','col.vendor':'Vendor','col.type':'Type','col.assign':'IP assignment','col.ports':'Listening ports','col.notes':'Notes',
@@ -487,7 +489,9 @@ $('#impf').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)
   try{const r=await api('POST','/api/import',{text:await f.text()});await load();alert(t('imp.res',{r:r.read,a:r.added,s:r.skipped}))}catch(x){alert(x.message)}};
 $('#discover').onclick=discover;
 $('#scanall').onclick=()=>{const ids=devices.filter(d=>d.ip&&d.status&&d.status!=='off'&&!scanning.has(d.id)).map(d=>d.id);if(ids.length&&confirm(t('scan.confirm',{n:ids.length})))scan(ids)};
-$('#refresh').onclick=load;$('#q').oninput=render;
+$('#refresh').onclick=load;$('#q').oninput=()=>{$('#qx').hidden=!$('#q').value;render()};
+$('#qx').onclick=()=>{$('#q').value='';$('#qx').hidden=true;render();$('#q').focus()};
+$('#sform').onsubmit=e=>{e.preventDefault();render();$('#q').blur()};
 $('#stats').onclick=e=>{const k=e.target.closest('[data-s]')?.dataset.s;if(!k)return;
   if(k==='all'){filt.clear();tf.clear();return render()}
   if(filt.has(k))filt.delete(k);else{if(k!=='nores')['on','off','conflict'].forEach(x=>filt.delete(x));filt.add(k)}  // statuses exclude each other
@@ -615,7 +619,7 @@ const setAuto=v=>{auto=v;try{localStorage.setItem('auto',v?'1':'0')}catch{}
 $('#pause').onclick=()=>setAuto(!auto);setAuto(auto);
 setInterval(()=>{if(auto&&!$('#ldlg').open)load().catch(()=>{})},30000);
 let sess={login:false,user:null};
-const startApp=()=>load().then(()=>{if({{AUTO}}&&!devices.length)discover()}).catch(()=>{});
+const startApp=()=>load().then(()=>{if({{AUTO}}&&sess.first)discover()}).catch(()=>{});
 function showLogin(){if($('#ldlg').open)return;$('#lerr').textContent='';$('#ldlg').showModal();$('#lform').username.focus()}
 $('#ldlg').oncancel=e=>e.preventDefault();  // no way around the login
 $('#lform').onsubmit=async e=>{e.preventDefault();const f=e.target;

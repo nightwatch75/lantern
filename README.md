@@ -79,6 +79,8 @@ docker compose logs lantern
 
 Then open `http://127.0.0.1:8099` (or the host and port you set). On the first start, with an empty database, LANtern discovers the devices by itself.
 
+**WSL2 (Windows).** By default WSL2 sits behind a virtual NAT network (`172.x.x.x`), not on your LAN: LANtern finds no device, because ARP and multicast (mDNS, SSDP) do not cross the NAT. Check with `ip route` inside WSL. Two ways out: turn on mirrored networking (Windows 11 22H2 or later) with `[wsl2]` and `networkingMode=mirrored` in `%UserProfile%\.wslconfig`, then `wsl --shutdown` (not tested); or run LANtern natively on Windows (`python app.py`, experimental). The Docker setup is verified on Linux only.
+
 | Variable (`.env`) | Default | Meaning |
 |---|---|---|
 | `LANTERN_USER`, `LANTERN_PASSWORD` | empty | Both set: the user is created at start, and `.env` wins over the web page. The password needs 8 to 200 characters, or the container stops. Both empty: no login |
